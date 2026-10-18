@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Sparkles,
   X,
   Send,
   RotateCcw,
-  Bot,
   User,
-  MessageSquare,
   HelpCircle,
-  ChevronDown,
 } from "lucide-react";
 
 interface Message {
@@ -25,6 +23,8 @@ const QUICK_QUESTIONS = [
   "តើសិស្សត្រូវចុះឈ្មោះដោយរបៀបណា?",
 ];
 
+const BOT_AVATAR = "/images/ai-bot.png";
+
 export default function AIChatDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -37,8 +37,43 @@ export default function AIChatDrawer() {
   const [loading, setLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
 
+  // Position for draggable floating button
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number }>({
+    startX: 0,
+    startY: 0,
+    posX: 0,
+    posY: 0,
+  });
+  const hasMovedRef = useRef(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize position on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ai_bot_pos");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const x = Math.min(Math.max(10, parsed.x), window.innerWidth - 75);
+          const y = Math.min(Math.max(10, parsed.y), window.innerHeight - 140);
+          setPosition({ x, y });
+          return;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      // Default initial position (bottom right, above mobile bottom bar)
+      const defaultX = Math.max(10, window.innerWidth - 75);
+      const defaultY = Math.max(10, window.innerHeight - 150);
+      setPosition({ x: defaultX, y: defaultY });
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,6 +86,111 @@ export default function AIChatDrawer() {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [isOpen, messages]);
+
+  // Handle Touch Drag (Mobile)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!position) return;
+    const touch = e.touches[0];
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    dragStartRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      posX: position.x,
+      posY: position.y,
+    };
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDraggingRef.current) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - dragStartRef.current.startX;
+    const deltaY = touch.clientY - dragStartRef.current.startY;
+
+    if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+      hasMovedRef.current = true;
+    }
+
+    const newX = Math.min(
+      Math.max(10, dragStartRef.current.posX + deltaX),
+      window.innerWidth - 70
+    );
+    const newY = Math.min(
+      Math.max(10, dragStartRef.current.posY + deltaY),
+      window.innerHeight - 80
+    );
+
+    setPosition({ x: newX, y: newY });
+  }, []);
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    if (!hasMovedRef.current) {
+      // Tap detected -> Toggle Drawer
+      setIsOpen((prev) => !prev);
+    } else if (position) {
+      localStorage.setItem("ai_bot_pos", JSON.stringify(position));
+    }
+  };
+
+  // Handle Mouse Drag (Desktop)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!position) return;
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX: position.x,
+      posY: position.y,
+    };
+    setIsDragging(true);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = ev.clientX - dragStartRef.current.startX;
+      const deltaY = ev.clientY - dragStartRef.current.startY;
+
+      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+        hasMovedRef.current = true;
+      }
+
+      const newX = Math.min(
+        Math.max(10, dragStartRef.current.posX + deltaX),
+        window.innerWidth - 70
+      );
+      const newY = Math.min(
+        Math.max(10, dragStartRef.current.posY + deltaY),
+        window.innerHeight - 80
+      );
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+
+      if (!hasMovedRef.current) {
+        setIsOpen((prev) => !prev);
+      } else {
+        setPosition((curr) => {
+          if (curr) {
+            localStorage.setItem("ai_bot_pos", JSON.stringify(curr));
+          }
+          return curr;
+        });
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
@@ -109,23 +249,55 @@ export default function AIChatDrawer() {
 
   return (
     <>
-      {/* Floating Action Button (Sits comfortably above mobile bottom bar) */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 print:hidden">
-        <button
-          type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="group relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-600/35 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/20"
-          title="បើកជំនួយការ AI សាលារៀន"
-        >
-          <div className="relative">
-            <Sparkles className="w-5 h-5 animate-pulse text-amber-200" />
+      {/* Draggable Circular Robot Floating Button (Like Image 2) */}
+      <div
+        style={
+          position
+            ? { left: `${position.x}px`, top: `${position.y}px` }
+            : { right: "16px", bottom: "140px" }
+        }
+        className={`fixed z-40 print:hidden select-none touch-none ${
+          isDragging ? "cursor-grabbing scale-105" : "cursor-grab"
+        }`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+      >
+        <div className="relative group">
+          {/* Animated Glow Halo */}
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 opacity-60 blur-xs group-hover:opacity-100 transition-opacity animate-pulse" />
+
+          {/* Circular Button Container */}
+          <button
+            type="button"
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/95 p-1 border-2 border-white shadow-2xl shadow-cyan-500/30 ring-2 ring-teal-400/60 overflow-hidden flex items-center justify-center transition-transform active:scale-95 hover:scale-105 cursor-pointer backdrop-blur"
+            title="អូសទៅកន្លែងណាក៏បាន ឬចុចដើម្បីសួរ AI"
+          >
+            {/* Robot Image */}
+            <div className="w-full h-full rounded-full overflow-hidden relative">
+              <Image
+                src={BOT_AVATAR}
+                alt="AI Assistant"
+                fill
+                sizes="(max-width: 640px) 56px, 64px"
+                className="object-cover rounded-full pointer-events-none"
+                priority
+              />
+            </div>
+
+            {/* Unread indicator */}
             {hasUnread && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+              <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white animate-bounce" />
             )}
+          </button>
+
+          {/* Tiny label badge */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-900/85 text-white font-bold text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap shadow-xs border border-white/20 pointer-events-none flex items-center gap-1">
+            <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+            <span>សួរ AI</span>
           </div>
-          <span className="hidden sm:inline">សួរ AI ជំនួយការ</span>
-          <span className="sm:hidden font-bold">AI</span>
-        </button>
+        </div>
       </div>
 
       {/* Slide-over Drawer / Modal */}
@@ -134,17 +306,23 @@ export default function AIChatDrawer() {
           {/* Drawer container */}
           <div className="bg-white w-full sm:w-[440px] h-[85vh] sm:h-[620px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col border border-slate-200 overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-right duration-200">
             {/* Header */}
-            <div className="px-4 py-3.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-slate-900 text-white flex items-center justify-between border-b border-emerald-800/40">
+            <div className="px-4 py-3 bg-gradient-to-r from-teal-700 via-emerald-700 to-slate-900 text-white flex items-center justify-between border-b border-teal-800/40">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 border border-white/10 shadow-xs">
-                  <Bot className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/80 shadow-md relative flex-shrink-0 bg-white">
+                  <Image
+                    src={BOT_AVATAR}
+                    alt="AI Assistant"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm leading-tight flex items-center gap-2">
                     <span>ជំនួយការ AI សាលារៀន</span>
                   </h3>
-                  <p className="text-[11px] text-emerald-200/80 font-medium">
-                    Google Gemini Flash ឆ្លើយជាភាសាខ្មែរ
+                  <p className="text-[11px] text-teal-200/90 font-medium">
+                    Google Gemini ឆ្លើយជាភាសាខ្មែរ
                   </p>
                 </div>
               </div>
@@ -153,7 +331,7 @@ export default function AIChatDrawer() {
                 <button
                   type="button"
                   onClick={handleClearChat}
-                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                   title="សម្អាតការសន្ទនា"
                 >
                   <RotateCcw className="w-4 h-4" />
@@ -161,7 +339,7 @@ export default function AIChatDrawer() {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                   title="បិទ"
                 >
                   <X className="w-5 h-5" />
@@ -172,7 +350,7 @@ export default function AIChatDrawer() {
             {/* Quick Questions Pills */}
             <div className="p-2.5 bg-slate-50 border-b border-slate-100 overflow-x-auto no-scrollbar flex items-center gap-1.5 flex-nowrap text-[11px]">
               <span className="font-bold text-slate-500 whitespace-nowrap pl-1 flex items-center gap-1">
-                <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <HelpCircle className="w-3.5 h-3.5 text-teal-600" />
                 <span>សំណួររហ័ស៖</span>
               </span>
               {QUICK_QUESTIONS.map((q, idx) => (
@@ -181,7 +359,7 @@ export default function AIChatDrawer() {
                   type="button"
                   onClick={() => handleSend(q)}
                   disabled={loading}
-                  className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 transition-all font-medium disabled:opacity-50 cursor-pointer shadow-2xs"
+                  className="whitespace-nowrap px-2.5 py-1 rounded-full bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 hover:border-teal-300 transition-all font-medium disabled:opacity-50 cursor-pointer shadow-2xs"
                 >
                   {q}
                 </button>
@@ -199,20 +377,26 @@ export default function AIChatDrawer() {
                       isUser ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
-                    <div
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold ${
-                        isUser
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-800 text-amber-300"
-                      }`}
-                    >
-                      {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                    </div>
+                    {isUser ? (
+                      <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold shadow-xs">
+                        <User className="w-4 h-4" />
+                      </div>
+                    ) : (
+                      <div className="w-7 h-7 rounded-full overflow-hidden border border-teal-300 shadow-xs relative flex-shrink-0 bg-white">
+                        <Image
+                          src={BOT_AVATAR}
+                          alt="AI"
+                          fill
+                          sizes="28px"
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
 
                     <div
                       className={`max-w-[85%] p-3 rounded-2xl text-xs sm:text-[13px] leading-relaxed whitespace-pre-wrap ${
                         isUser
-                          ? "bg-emerald-600 text-white rounded-tr-xs shadow-xs"
+                          ? "bg-emerald-600 text-white rounded-tr-xs shadow-xs font-medium"
                           : "bg-white text-slate-800 rounded-tl-xs border border-slate-200 shadow-xs"
                       }`}
                     >
@@ -224,20 +408,28 @@ export default function AIChatDrawer() {
 
               {loading && (
                 <div className="flex items-start gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-slate-800 text-amber-300 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-full overflow-hidden border border-teal-300 shadow-xs relative flex-shrink-0 bg-white">
+                    <Image
+                      src={BOT_AVATAR}
+                      alt="AI"
+                      fill
+                      sizes="28px"
+                      className="object-cover"
+                    />
                   </div>
-                  <div className="bg-white p-3 rounded-2xl rounded-tl-xs border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce" />
+                  <div className="bg-white p-3 rounded-2xl rounded-tl-xs border border-slate-200 text-xs text-slate-500 flex items-center gap-2 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-teal-600 animate-bounce" />
                     <span
-                      className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce"
+                      className="w-2 h-2 rounded-full bg-teal-600 animate-bounce"
                       style={{ animationDelay: "0.2s" }}
                     />
                     <span
-                      className="w-2 h-2 rounded-full bg-emerald-600 animate-bounce"
+                      className="w-2 h-2 rounded-full bg-teal-600 animate-bounce"
                       style={{ animationDelay: "0.4s" }}
                     />
-                    <span className="ml-1 text-[11px]">Gemini កំពុងគិត...</span>
+                    <span className="ml-1 text-[11px] font-medium text-slate-600">
+                      Gemini កំពុងគិត...
+                    </span>
                   </div>
                 </div>
               )}
@@ -260,12 +452,12 @@ export default function AIChatDrawer() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={loading}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-bold transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
+                  className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-bold transition-all flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
                   title="ផ្ញើសំណួរ"
                 >
                   <Send className="w-4 h-4" />
