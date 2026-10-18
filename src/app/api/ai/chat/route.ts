@@ -41,7 +41,8 @@ interface ChatMessage {
 }
 
 const CANDIDATE_MODELS = [
-  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-lite-latest",
   "gemini-3.5-flash",
   "gemini-flash-latest",
 ];
@@ -98,8 +99,8 @@ export async function POST(req: NextRequest) {
       },
       contents,
       generationConfig: {
-        temperature: 0.6,
-        maxOutputTokens: 1024,
+        temperature: 0.4,
+        maxOutputTokens: 600,
       },
     };
 
