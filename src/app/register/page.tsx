@@ -202,7 +202,8 @@ function RegisterForm() {
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <span>👦 ប្រុស (Male)</span>
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span>ប្រុស (Male)</span>
                   </button>
                   <button
                     type="button"
@@ -213,7 +214,8 @@ function RegisterForm() {
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <span>👧 ស្រី (Female)</span>
+                    <User className="w-4 h-4 text-pink-600" />
+                    <span>ស្រី (Female)</span>
                   </button>
                 </div>
               </div>

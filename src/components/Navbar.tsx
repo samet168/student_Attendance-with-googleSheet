@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, UserCheck, Settings, FileSpreadsheet } from "lucide-react";
+import { BookOpen, UserCheck, Settings, FileSpreadsheet, GraduationCap } from "lucide-react";
 
 interface NavbarProps {
   sheetId?: string;
@@ -37,6 +37,14 @@ export default function Navbar({ sheetId, sheetTitle }: NavbarProps) {
             >
               <UserCheck className="w-4 h-4" />
               <span>កត់វត្តមាន</span>
+            </Link>
+
+            <Link
+              href={`/grades?sheetId=${encodeURIComponent(sheetId)}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors border border-purple-200"
+            >
+              <GraduationCap className="w-4 h-4 text-purple-600" />
+              <span>ពិន្ទុ & ចំណាត់ថ្នាក់</span>
             </Link>
 
             <Link

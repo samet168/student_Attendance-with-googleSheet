@@ -21,6 +21,7 @@ import {
   Plus,
   Layers,
   Tag,
+  GraduationCap,
 } from "lucide-react";
 
 interface Student {
@@ -394,6 +395,14 @@ export default function Home() {
                   <span>កត់វត្តមានសិស្ស</span>
                 </Link>
 
+                <Link
+                  href={`/grades?sheetId=${encodeURIComponent(connectedSheet.id)}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors shadow-sm"
+                >
+                  <GraduationCap className="w-4 h-4 text-purple-600" />
+                  <span>ពិន្ទុ & ចំណាត់ថ្នាក់</span>
+                </Link>
+
                 <button
                   onClick={handleDisconnect}
                   className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
@@ -545,10 +554,13 @@ export default function Home() {
                     />
                   </div>
                   <div className="space-y-2 text-xs text-slate-600">
-                    <p className="font-semibold text-slate-800">
-                      {activeClassForQR !== "all"
-                        ? `📱 QR Code សម្រាប់ថ្នាក់ ${activeClassForQR}៖`
-                        : "📱 QR Code សម្រាប់សិស្សទូទៅ៖"}
+                    <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                      <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        {activeClassForQR !== "all"
+                          ? `QR Code សម្រាប់ថ្នាក់ ${activeClassForQR}៖`
+                          : "QR Code សម្រាប់សិស្សទូទៅ៖"}
+                      </span>
                     </p>
                     <p className="leading-relaxed">
                       {activeClassForQR !== "all"
