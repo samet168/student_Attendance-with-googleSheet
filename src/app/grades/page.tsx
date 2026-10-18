@@ -28,7 +28,12 @@ import {
   ChevronDown,
   Plus,
   Send,
+  QrCode,
+  Download,
+  X,
+  Trash2,
 } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { StudentGradeRow, DEFAULT_GRADE_SUBJECTS } from "@/types/grades";
 
 const MONTHS_LIST = [
@@ -68,6 +73,10 @@ function GradesContent() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [copiedSubject, setCopiedSubject] = useState<string | null>(null);
   const [isPrintMode, setIsPrintMode] = useState(false);
+  const [showAddSubject, setShowAddSubject] = useState(false);
+  const [newSubjectInput, setNewSubjectInput] = useState("");
+  const [qrModalSubject, setQrModalSubject] = useState<string | null>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   // Initialize sheetId and classes from localStorage if not in URL
   useEffect(() => {
@@ -249,18 +258,76 @@ function GradesContent() {
     }
   };
 
-  // Copy Telegram link for a specific subject
-  const copySubjectLink = (subjectName: string) => {
+  const getSubjectLink = (subjectName: string) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const link = `${origin}/grades/input?sheetId=${encodeURIComponent(
+    return `${origin}/grades/input?sheetId=${encodeURIComponent(
       sheetId
     )}&class=${encodeURIComponent(className)}&month=${encodeURIComponent(
       month
     )}&subject=${encodeURIComponent(subjectName)}`;
+  };
 
+  // Copy Telegram link for a specific subject
+  const copySubjectLink = (subjectName: string) => {
+    const link = getSubjectLink(subjectName);
     navigator.clipboard.writeText(link);
     setCopiedSubject(subjectName);
     setTimeout(() => setCopiedSubject(null), 3000);
+  };
+
+  const handleAddSubject = () => {
+    const trimmed = newSubjectInput.trim();
+    if (!trimmed) return;
+    if (subjects.includes(trimmed)) {
+      setError(`មុខវិជ្ជា «${trimmed}» មានរួចហើយ!`);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    const updatedSubjects = [...subjects, trimmed];
+    setSubjects(updatedSubjects);
+
+    setStudents((prev) =>
+      prev.map((st) => ({
+        ...st,
+        scores: { ...st.scores, [trimmed]: "" },
+      }))
+    );
+
+    setNewSubjectInput("");
+    setShowAddSubject(false);
+    setSuccessMsg(`បានបន្ថែមមុខវិជ្ជា «${trimmed}» ជោគជ័យ! សូមចុច «រក្សាទុកទាំងអស់» ដើម្បី Sync ចូល Google Sheet។`);
+    setTimeout(() => setSuccessMsg(null), 4000);
+  };
+
+  const handleRemoveSubject = (subjectName: string) => {
+    if (!confirm(`តើអ្នកពិតជាចង់លុបមុខវិជ្ជា «${subjectName}» មែនទេ?`)) return;
+
+    const updatedSubjects = subjects.filter((s) => s !== subjectName);
+    setSubjects(updatedSubjects);
+
+    setStudents((prev) =>
+      prev.map((st) => {
+        const copyScores = { ...st.scores };
+        delete copyScores[subjectName];
+        return { ...st, scores: copyScores };
+      })
+    );
+
+    setSuccessMsg(`បានលុបមុខវិជ្ជា «${subjectName}»! សូមចុច «រក្សាទុកទាំងអស់» ដើម្បីកត់ត្រាការផ្លាស់ប្តូរ។`);
+    setTimeout(() => setSuccessMsg(null), 4000);
+  };
+
+  const downloadSubjectQR = () => {
+    if (!qrRef.current) return;
+    const canvas = qrRef.current.querySelector("canvas");
+    if (!canvas) return;
+
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `QRCode_${className}_${qrModalSubject || "subject"}.png`;
+    a.click();
   };
 
   const getRankBadge = (rank: number | "-") => {
@@ -451,23 +518,84 @@ function GradesContent() {
         {/* Telegram Direct Links Card */}
         {!isPrintMode && (
           <div className="bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/50 rounded-2xl p-5 border border-blue-200/80 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
                   <Send className="w-4 h-4" />
                 </div>
                 <div>
                   <h2 className="font-bold text-slate-900 text-sm">
-                    តំណភ្ជាប់សម្រាប់ផ្ញើតាម Telegram ទៅគ្រូតាមមុខវិជ្ជា
+                    តំណភ្ជាប់ និង QR Code សម្រាប់គ្រូតាមមុខវិជ្ជា
                   </h2>
                   <p className="text-xs text-slate-500">
-                    គ្រាន់តែចុច «ចម្លង Link» រួច Paste ផ្ញើទៅគ្រូមុខវិជ្ជា គាត់នឹងចូលបញ្ចូលពិន្ទុតាមទូរស័ព្ទបានភ្លាម!
+                    គ្រូអាច Scan QR Code ឬចុច Link ដើម្បីចូលកត់វត្តមាន និងបញ្ចូលពិន្ទុមុខវិជ្ជារបស់ខ្លួនបានភ្លាមៗ!
                   </p>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddSubject(!showAddSubject)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>បន្ថែមមុខវិជ្ជា</span>
+              </button>
             </div>
 
-            {/* Subject Link Pills */}
+            {/* Add Subject Inline Form */}
+            {showAddSubject && (
+              <div className="p-4 bg-white rounded-xl border border-blue-200 shadow-sm space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                    <Plus className="w-4 h-4 text-emerald-600" />
+                    <span>បន្ថែមមុខវិជ្ជាថ្មីសម្រាប់ថ្នាក់ {className}</span>
+                  </h4>
+                  <button
+                    onClick={() => setShowAddSubject(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="ឧ. កីឡា, ព័ត៌មានវិទ្យា, គំនូរ, ភាសាបារាំង..."
+                    value={newSubjectInput}
+                    onChange={(e) => setNewSubjectInput(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddSubject();
+                    }}
+                  />
+                  <button
+                    onClick={handleAddSubject}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    បន្ថែម
+                  </button>
+                </div>
+                {/* Quick suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] text-slate-500 font-medium">មុខវិជ្ជាពេញនិយម៖</span>
+                  {["កីឡា", "ព័ត៌មានវិទ្យា", "គំនូរ", "ភាសាបារាំង", "សេដ្ឋកិច្ច"]
+                    .filter((s) => !subjects.includes(s))
+                    .map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setNewSubjectInput(s)}
+                        className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors cursor-pointer"
+                      >
+                        + {s}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Subject Link & QR Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-2">
               {subjects.map((sub) => {
                 const stat = subjectStats[sub];
@@ -480,7 +608,7 @@ function GradesContent() {
                 return (
                   <div
                     key={sub}
-                    className="bg-white rounded-xl p-3 border border-slate-200/80 hover:border-blue-300 transition-all flex flex-col justify-between gap-2 shadow-xs"
+                    className="bg-white rounded-xl p-3 border border-slate-200/80 hover:border-blue-300 transition-all flex flex-col justify-between gap-2.5 shadow-xs"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -507,44 +635,120 @@ function GradesContent() {
                         </div>
                       </div>
 
-                      <Link
-                        href={`/grades/input?sheetId=${encodeURIComponent(
-                          sheetId
-                        )}&class=${encodeURIComponent(className)}&month=${encodeURIComponent(
-                          month
-                        )}&subject=${encodeURIComponent(sub)}`}
-                        target="_blank"
-                        className="p-1 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-                        title="បើកទំព័រនេះ"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={getSubjectLink(sub)}
+                          target="_blank"
+                          className="p-1 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                          title="បើកទំព័រនេះ"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                        {subjects.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveSubject(sub)}
+                            className="p-1 text-slate-300 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                            title="លុបមុខវិជ្ជានេះចេញ"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <button
-                      onClick={() => copySubjectLink(sub)}
-                      className={`w-full py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isCopied
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "bg-blue-50 hover:bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {isCopied ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>បានចម្លងរួច!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>ចម្លង Link Telegram</span>
-                        </>
-                      )}
-                    </button>
+                    {/* Dual Action Buttons: Copy Link & Show QR Code */}
+                    <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100">
+                      <button
+                        onClick={() => copySubjectLink(sub)}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                          isCopied
+                            ? "bg-emerald-600 text-white shadow-xs"
+                            : "bg-blue-50 hover:bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>ចម្លងរួច</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Link</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setQrModalSubject(sub)}
+                        className="py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <QrCode className="w-3 h-3 text-slate-600" />
+                        <span>QR Code</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* QR Code Modal */}
+            {qrModalSubject && (
+              <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="text-left">
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <QrCode className="w-4 h-4 text-emerald-600" />
+                        <span>QR Code មុខវិជ្ជា «{qrModalSubject}»</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        ថ្នាក់ {className} • ខែ {month}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setQrModalSubject(null)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div
+                    ref={qrRef}
+                    className="p-4 bg-slate-50 rounded-2xl inline-block border border-slate-200"
+                  >
+                    <QRCodeCanvas
+                      value={getSubjectLink(qrModalSubject)}
+                      size={200}
+                      level="H"
+                      includeMargin
+                    />
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    លោកគ្រូ/អ្នកគ្រូមុខវិជ្ជា «{qrModalSubject}» អាច Scan ដោយផ្ទាល់តាមទូរស័ព្ទ ដើម្បីចូលកត់វត្តមាន និងបញ្ចូលពិន្ទុ។
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => copySubjectLink(qrModalSubject)}
+                      className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedSubject === qrModalSubject ? "បានចម្លងរួច!" : "ចម្លង Link"}</span>
+                    </button>
+                    <button
+                      onClick={downloadSubjectQR}
+                      className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm shadow-emerald-600/20 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>ទាញយក QR</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

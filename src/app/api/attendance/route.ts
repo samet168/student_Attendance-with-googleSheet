@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const sheetId = searchParams.get("sheetId");
     const date = searchParams.get("date");
+    const subject = searchParams.get("subject") || undefined;
 
     if (!sheetId || !date) {
       return NextResponse.json(
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const records = await getAttendanceByDate(sheetId, date);
+    const records = await getAttendanceByDate(sheetId, date, subject);
     return NextResponse.json({ success: true, records });
   } catch (error: any) {
     console.error("Error in GET /api/attendance:", error);

@@ -315,10 +315,11 @@ export async function registerNewStudent(
   };
 }
 
-// Get attendance for a specific date
+// Get attendance for a specific date and optional subject
 export async function getAttendanceByDate(
   sheetIdOrUrl: string,
-  date: string
+  date: string,
+  subject?: string
 ): Promise<Record<string, { status: "present" | "permission" | "absent"; note?: string }>> {
   const sheetId = extractSheetId(sheetIdOrUrl);
   const sheets = getSheetsClient();
@@ -334,10 +335,26 @@ export async function getAttendanceByDate(
 
     for (const row of rows) {
       if (row[0] === date && row[1]) {
-        recordMap[row[1]] = {
-          status: (row[4] as any) || "present",
-          note: row[5] || "",
-        };
+        const rawNote = row[5] || "";
+        const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
+        const rowSubject = match ? match[1].trim() : "";
+
+        if (subject) {
+          if (rowSubject.toLowerCase() === subject.trim().toLowerCase()) {
+            recordMap[row[1]] = {
+              status: (row[4] as any) || "present",
+              note: rawNote.replace(/\[មុខវិជ្ជា:\s*[^\]]+\]\s*/, ""),
+            };
+          }
+        } else {
+          // If no subject requested, return general records (or any)
+          if (!rowSubject) {
+            recordMap[row[1]] = {
+              status: (row[4] as any) || "present",
+              note: rawNote,
+            };
+          }
+        }
       }
     }
 
@@ -347,7 +364,7 @@ export async function getAttendanceByDate(
   }
 }
 
-// Save or update attendance records for a given date
+// Save or update attendance records for a given date and optional subject
 export async function saveAttendanceRecords(
   sheetIdOrUrl: string,
   date: string,
@@ -357,6 +374,7 @@ export async function saveAttendanceRecords(
     className: string;
     status: "present" | "permission" | "absent";
     note?: string;
+    subject?: string;
   }>
 ) {
   const sheetId = extractSheetId(sheetIdOrUrl);
@@ -371,12 +389,15 @@ export async function saveAttendanceRecords(
 
   const existingRows = res.data.values || [];
   
-  // Create a map of existing row indices for this date + studentId
-  // rowIndex in sheet = index + 2 (since A1 is header and 0-indexed)
+  // Create a map of existing row indices for date + studentId + subject
   const existingMap = new Map<string, number>();
   existingRows.forEach((row, idx) => {
     if (row && row[0] === date && row[1]) {
-      existingMap.set(row[1], idx + 2);
+      const rawNote = row[5] || "";
+      const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
+      const rowSubject = match ? match[1].trim().toLowerCase() : "";
+      const key = `${row[1]}_${rowSubject}`;
+      existingMap.set(key, idx + 2);
     }
   });
 
@@ -384,18 +405,24 @@ export async function saveAttendanceRecords(
   const appendRows: any[][] = [];
 
   for (const rec of records) {
+    const cleanSub = (rec.subject || "").trim();
+    const subjectPrefix = cleanSub ? `[មុខវិជ្ជា: ${cleanSub}] ` : "";
+    const cleanNote = rec.note ? `${subjectPrefix}${rec.note.trim()}` : subjectPrefix.trim();
+
     const rowValues = [
       date,
       rec.studentId,
       rec.studentName,
       rec.className,
       rec.status,
-      rec.note || "",
+      cleanNote,
       now,
     ];
 
-    if (existingMap.has(rec.studentId)) {
-      const rowNum = existingMap.get(rec.studentId)!;
+    const key = `${rec.studentId}_${cleanSub.toLowerCase()}`;
+
+    if (existingMap.has(key)) {
+      const rowNum = existingMap.get(key)!;
       updateRequests.push({
         range: `Attendance!A${rowNum}:G${rowNum}`,
         values: [rowValues],
