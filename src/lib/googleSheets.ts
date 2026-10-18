@@ -2,19 +2,22 @@ import { google } from "googleapis";
 
 function formatPrivateKey(rawKey: string): string {
   if (!rawKey) return "";
-  let key = rawKey.trim();
-  // Strip wrapping quotes if any
-  if (
-    (key.startsWith('"') && key.endsWith('"')) ||
-    (key.startsWith("'") && key.endsWith("'"))
-  ) {
-    key = key.slice(1, -1);
+  let str = rawKey.trim();
+  // Strip outer quotes
+  str = str.replace(/^["']+|["']+$/g, "");
+  // Unescape \\n and \n
+  str = str.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
+
+  // Extract body between BEGIN and END
+  const match = str.match(/-----BEGIN[^-]+-----([\s\S]*?)-----END[^-]+-----/);
+  if (match && match[1]) {
+    // Remove all whitespace and newlines from the base64 content
+    const base64Body = match[1].replace(/\s+/g, "");
+    // Split into standard PEM chunks of 64 characters
+    const chunks = base64Body.match(/.{1,64}/g) || [];
+    return "-----BEGIN PRIVATE KEY-----\n" + chunks.join("\n") + "\n-----END PRIVATE KEY-----\n";
   }
-  // Replace literal \n with real newline characters
-  key = key.replace(/\\n/g, "\n");
-  // Replace \r\n with \n
-  key = key.replace(/\r\n/g, "\n");
-  return key.trim();
+  return str;
 }
 
 export function getGoogleAuth() {
