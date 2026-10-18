@@ -402,7 +402,7 @@ function GradesContent() {
       {/* Hide navbar when in print mode */}
       {!isPrintMode && <Navbar sheetId={sheetId} />}
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-28 space-y-4 sm:space-y-6">
         {/* Controls Bar */}
         {!isPrintMode && (
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
@@ -830,98 +830,108 @@ function GradesContent() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-3 w-10 text-center">#</th>
-                    <th className="py-3 px-3 min-w-[120px]">ឈ្មោះសិស្ស</th>
-                    <th className="py-3 px-2 w-12 text-center">ភេទ</th>
-                    {subjects.map((sub) => (
-                      <th
-                        key={sub}
-                        className="py-3 px-2 min-w-[70px] text-center whitespace-nowrap"
-                      >
-                        {sub}
+            <div>
+              {/* Mobile swipe hint */}
+              <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-[11px] text-slate-500 md:hidden">
+                <span>អូសទៅស្តាំដើម្បីមើលមុខវិជ្ជា →</span>
+                <span className="font-semibold text-slate-700">{students.length} នាក់</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-2 w-10 text-center">#</th>
+                      <th className="sticky left-0 z-20 bg-slate-100 py-3 px-3 min-w-[130px] border-r border-slate-200 shadow-xs">
+                        ឈ្មោះសិស្ស
                       </th>
-                    ))}
-                    <th className="py-3 px-3 min-w-[70px] text-center bg-emerald-50 text-emerald-900">
-                      សរុប
-                    </th>
-                    <th className="py-3 px-3 min-w-[70px] text-center bg-emerald-50 text-emerald-900">
-                      មធ្យមភាគ
-                    </th>
-                    <th className="py-3 px-3 min-w-[85px] text-center bg-purple-50 text-purple-900">
-                      ចំណាត់ថ្នាក់
-                    </th>
-                    <th className="py-3 px-3 min-w-[80px] text-center bg-purple-50 text-purple-900">
-                      និទ្ទេស
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {students.map((st, idx) => (
-                    <tr
-                      key={st.studentId}
-                      className="hover:bg-slate-50/70 transition-colors"
-                    >
-                      <td className="py-2.5 px-3 text-center text-slate-400 font-semibold">
-                        {idx + 1}
-                      </td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span className="font-bold text-slate-900 block">
-                          {st.studentName}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {st.studentId}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        <span
-                          className={`font-semibold ${
-                            st.gender === "ស្រី"
-                              ? "text-pink-600"
-                              : "text-blue-600"
-                          }`}
+                      <th className="py-3 px-2 w-12 text-center">ភេទ</th>
+                      {subjects.map((sub) => (
+                        <th
+                          key={sub}
+                          className="py-3 px-2 min-w-[70px] text-center whitespace-nowrap"
                         >
-                          {st.gender || "-"}
-                        </span>
-                      </td>
+                          {sub}
+                        </th>
+                      ))}
+                      <th className="py-3 px-3 min-w-[70px] text-center bg-emerald-50 text-emerald-900">
+                        សរុប
+                      </th>
+                      <th className="py-3 px-3 min-w-[70px] text-center bg-emerald-50 text-emerald-900">
+                        មធ្យមភាគ
+                      </th>
+                      <th className="py-3 px-3 min-w-[85px] text-center bg-purple-50 text-purple-900">
+                        ចំណាត់ថ្នាក់
+                      </th>
+                      <th className="py-3 px-3 min-w-[80px] text-center bg-purple-50 text-purple-900">
+                        និទ្ទេស
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {students.map((st, idx) => (
+                      <tr
+                        key={st.studentId}
+                        className="hover:bg-slate-50/70 transition-colors group"
+                      >
+                        <td className="py-2.5 px-2 text-center text-slate-400 font-semibold">
+                          {idx + 1}
+                        </td>
+                        <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50 py-2.5 px-3 whitespace-nowrap border-r border-slate-200 shadow-xs">
+                          <span className="font-bold text-slate-900 block truncate max-w-[125px]">
+                            {st.studentName}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {st.studentId}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 text-center">
+                          <span
+                            className={`font-semibold ${
+                              st.gender === "ស្រី"
+                                ? "text-pink-600"
+                                : "text-blue-600"
+                            }`}
+                          >
+                            {st.gender || "-"}
+                          </span>
+                        </td>
 
-                      {/* Subject Scores Input Cells */}
-                      {subjects.map((sub) => {
-                        const scoreVal =
-                          st.scores[sub] !== undefined && st.scores[sub] !== ""
-                            ? String(st.scores[sub])
-                            : "";
+                        {/* Subject Scores Input Cells */}
+                        {subjects.map((sub) => {
+                          const scoreVal =
+                            st.scores[sub] !== undefined && st.scores[sub] !== ""
+                              ? String(st.scores[sub])
+                              : "";
 
-                        return (
-                          <td key={sub} className="py-2 px-1 text-center">
-                            {isPrintMode ? (
-                              <span className="font-semibold text-slate-800">
-                                {scoreVal || "-"}
-                              </span>
-                            ) : (
-                              <input
-                                type="number"
-                                step="0.5"
-                                min="0"
-                                max="100"
-                                placeholder="-"
-                                value={scoreVal}
-                                onChange={(e) =>
-                                  handleScoreChange(
-                                    st.studentId,
-                                    sub,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-14 py-1 text-center font-bold text-slate-900 bg-transparent hover:bg-slate-100 focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-500 rounded-lg outline-none transition-all text-xs"
-                              />
-                            )}
-                          </td>
-                        );
-                      })}
+                          return (
+                            <td key={sub} className="py-2 px-1 text-center">
+                              {isPrintMode ? (
+                                <span className="font-semibold text-slate-800">
+                                  {scoreVal || "-"}
+                                </span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.5"
+                                  min="0"
+                                  max="100"
+                                  placeholder="-"
+                                  value={scoreVal}
+                                  onChange={(e) =>
+                                    handleScoreChange(
+                                      st.studentId,
+                                      sub,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-14 py-1.5 text-center font-bold text-slate-900 bg-transparent hover:bg-slate-100 focus:bg-white border border-transparent hover:border-slate-300 focus:border-emerald-500 rounded-lg outline-none transition-all text-xs"
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
 
                       {/* Total */}
                       <td className="py-2.5 px-3 text-center font-black text-slate-900 bg-emerald-50/40">
@@ -946,6 +956,7 @@ function GradesContent() {
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
         </div>

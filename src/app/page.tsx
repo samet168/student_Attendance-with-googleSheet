@@ -218,7 +218,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col" suppressHydrationWarning>
       <Navbar sheetId={connectedSheet?.id} sheetTitle={connectedSheet?.title} />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 space-y-8">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 py-6 sm:py-8 pb-28 space-y-6 sm:space-y-8">
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 text-white p-6 sm:p-10 shadow-xl">
           <div className="relative z-10 max-w-2xl space-y-3">
@@ -346,8 +346,9 @@ export default function Home() {
                 </form>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500">
-                ⚡ ប្រព័ន្ធនឹងបង្កើត Tab ឈ្មោះ <code>Students</code> និង <code>Attendance</code> ដោយស្វ័យប្រវត្តិ។
+              <div className="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span>ប្រព័ន្ធនឹងបង្កើត Tab ឈ្មោះ <code>Students</code> និង <code>Attendance</code> ដោយស្វ័យប្រវត្តិ។</span>
               </div>
             </div>
           </div>

@@ -103,7 +103,7 @@ function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 py-8 px-4 flex flex-col items-center justify-center" suppressHydrationWarning>
+    <div className="min-h-screen bg-slate-100/70 py-6 sm:py-8 px-4 pb-20 flex flex-col items-center justify-center" suppressHydrationWarning>
       <div className="max-w-md w-full space-y-6">
         {/* Header Branding */}
         <div className="text-center space-y-2">
