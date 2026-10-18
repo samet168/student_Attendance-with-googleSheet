@@ -23,7 +23,7 @@ const QUICK_QUESTIONS = [
   "តើសិស្សត្រូវចុះឈ្មោះដោយរបៀបណា?",
 ];
 
-const BOT_AVATAR = "/images/ai-bot.png";
+const BOT_AVATAR = "/images/ai-bot-avatar.png";
 
 export default function AIChatDrawer() {
   const [isOpen, setIsOpen] = useState(false);
