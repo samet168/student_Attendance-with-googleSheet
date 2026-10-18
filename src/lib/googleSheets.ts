@@ -242,6 +242,68 @@ export async function registerNewStudent(
     },
   });
 
+  // Sync to class-specific tab (e.g. ថ្នាក់_12A)
+  const cleanClass = data.className.trim();
+  const classTabName = `ថ្នាក់_${cleanClass}`.replace(/[:\\/?*\[\]]/g, "_").slice(0, 100);
+
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const existingTitles = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
+
+    if (!existingTitles.includes(classTabName)) {
+      // Create new tab for this class
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: classTabName,
+                  gridProperties: { rowCount: 100, columnCount: 10, frozenRowCount: 1 },
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      // Add headers
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${classTabName}'!A1:F1`,
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [
+            ["ID សិស្ស", "ឈ្មោះពេញ", "ភេទ", "លេខទូរស័ព្ទ", "កាលបរិច្ឆេទចុះឈ្មោះ", "ចំណាំ"],
+          ],
+        },
+      });
+    }
+
+    // Append student to class-specific tab
+    const classRow = [
+      studentId,
+      data.name.trim(),
+      data.gender.trim(),
+      data.phone.trim(),
+      now,
+      data.note ? data.note.trim() : "",
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: `'${classTabName}'!A:F`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: {
+        values: [classRow],
+      },
+    });
+  } catch (classSyncErr) {
+    console.error("Error syncing to class tab:", classSyncErr);
+  }
+
   return {
     id: studentId,
     name: data.name.trim(),

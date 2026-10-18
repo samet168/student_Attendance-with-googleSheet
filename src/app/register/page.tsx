@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   GraduationCap,
@@ -12,17 +12,26 @@ import {
   RefreshCw,
   Send,
   UserPlus,
+  Lock,
 } from "lucide-react";
 
 function RegisterForm() {
   const searchParams = useSearchParams();
   const sheetId = searchParams.get("sheetId");
+  const presetClass = searchParams.get("class");
 
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"ប្រុស" | "ស្រី">("ប្រុស");
   const [phone, setPhone] = useState("");
-  const [className, setClassName] = useState("");
+  const [className, setClassName] = useState(presetClass || "");
   const [note, setNote] = useState("");
+
+  // Sync presetClass if URL changes
+  useEffect(() => {
+    if (presetClass) {
+      setClassName(presetClass);
+    }
+  }, [presetClass]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,18 +236,33 @@ function RegisterForm() {
 
               {/* Class / Subject */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>ថ្នាក់រៀន / មុខវិជ្ជា / ម៉ោងសិក្សា *</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>ថ្នាក់រៀន / មុខវិជ្ជា *</span>
+                  </span>
+                  {presetClass && (
+                    <span className="text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold border border-emerald-200 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-emerald-600" />
+                      <span>ថ្នាក់ {presetClass}</span>
+                    </span>
+                  )}
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={className}
-                  onChange={(e) => setClassName(e.target.value)}
-                  placeholder="ឧ. ថ្នាក់ទី ១២A ឬ English Level 2"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm placeholder:text-slate-400"
-                />
+                {presetClass ? (
+                  <div className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-emerald-300 text-sm font-bold text-emerald-900 flex items-center justify-between">
+                    <span>ថ្នាក់៖ {presetClass}</span>
+                    <span className="text-xs text-emerald-600 font-normal">បានកំណត់ដោយស្វ័យប្រវត្តិ</span>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={className}
+                    onChange={(e) => setClassName(e.target.value)}
+                    placeholder="ឧ. 12A, 12B ឬ ភាសាអង់គ្លេស"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm placeholder:text-slate-400"
+                  />
+                )}
               </div>
 
               {/* Note */}

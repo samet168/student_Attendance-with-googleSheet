@@ -39,6 +39,7 @@ interface StudentAttendanceState {
 function AttendanceContent() {
   const searchParams = useSearchParams();
   const paramSheetId = searchParams.get("sheetId");
+  const paramClass = searchParams.get("class");
 
   const [sheetId, setSheetId] = useState<string>("");
   const [sheetTitle, setSheetTitle] = useState<string>("");
@@ -53,7 +54,7 @@ function AttendanceContent() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [selectedClass, setSelectedClass] = useState("all");
+  const [selectedClass, setSelectedClass] = useState(paramClass || "all");
   const [attendanceData, setAttendanceData] = useState<
     Record<string, StudentAttendanceState>
   >({});
