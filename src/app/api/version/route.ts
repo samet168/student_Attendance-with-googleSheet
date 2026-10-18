@@ -5,21 +5,23 @@ export async function GET() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "missing";
   const rawKey = process.env.GOOGLE_PRIVATE_KEY || "";
   
-  let keyStatus = "unknown";
+  let authStatus = "unknown";
+  let authError = "";
   try {
-    getGoogleAuth();
-    keyStatus = "valid";
+    const auth = getGoogleAuth();
+    await auth.authorize();
+    authStatus = "SUCCESS";
   } catch (err: any) {
-    keyStatus = "error: " + err.message;
+    authStatus = "FAILED";
+    authError = err.message || String(err);
   }
 
   return NextResponse.json({
-    version: "2.0.0",
-    commit: "dd027fb-v2",
-    hasEmail: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    hasKey: !!process.env.GOOGLE_PRIVATE_KEY,
-    keyLength: rawKey.length,
-    keyStartsWithBegin: rawKey.includes("BEGIN PRIVATE KEY"),
-    keyStatus,
+    email,
+    rawKeyLength: rawKey.length,
+    rawKeyStart: rawKey.slice(0, 35),
+    rawKeyEnd: rawKey.slice(-35),
+    authStatus,
+    authError,
   });
 }
