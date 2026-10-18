@@ -320,15 +320,10 @@ function SubjectInputContent() {
             </div>
           </div>
 
-          <Link
-            href={`/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
-              className
-            )}&month=${encodeURIComponent(month)}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>តារាងរួម</span>
-          </Link>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>ច្រកគ្រូមុខវិជ្ជា</span>
+          </div>
         </div>
       </header>
 
