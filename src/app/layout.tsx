@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AIChatDrawer from "@/components/AIChatDrawer";
 
 export const metadata: Metadata = {
   title: "ប្រព័ន្ធកត់វត្តមានសិស្ស | Student Attendance via Google Sheet",
@@ -18,6 +19,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col bg-slate-50 text-slate-900" suppressHydrationWarning>
         {children}
+        <AIChatDrawer />
       </body>
     </html>
   );
