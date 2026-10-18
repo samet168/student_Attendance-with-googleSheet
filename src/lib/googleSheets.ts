@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 
-function formatPrivateKey(rawKey: string): string {
+export function formatPrivateKey(rawKey: string): string {
   if (!rawKey) return "";
   let str = rawKey.trim();
   // Strip outer quotes
