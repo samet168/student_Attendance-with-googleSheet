@@ -162,11 +162,20 @@ export async function verifyAndInitSheet(sheetIdOrUrl: string): Promise<SheetInf
   if (!hasAttendance) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: "Attendance!A1:G1",
+      range: "Attendance!A1:H1",
       valueInputOption: "RAW",
       requestBody: {
         values: [
-          ["កាលបរិច្ឆេទ", "ID សិស្ស", "ឈ្មោះសិស្ស", "ថ្នាក់", "ស្ថានភាពវត្តមាន", "ចំណាំ", "ម៉ោងកត់ត្រា"],
+          [
+            "កាលបរិច្ឆេទ",
+            "ID សិស្ស",
+            "ឈ្មោះសិស្ស",
+            "ថ្នាក់",
+            "មុខវិជ្ជា",
+            "ស្ថានភាពវត្តមាន",
+            "ចំណាំ",
+            "ម៉ោងកត់ត្រា",
+          ],
         ],
       },
     });
@@ -315,6 +324,22 @@ export async function registerNewStudent(
   };
 }
 
+export function toKhmerStatus(status: string): string {
+  if (!status) return "វត្តមាន";
+  const s = status.trim().toLowerCase();
+  if (s === "permission" || s === "ច្បាប់") return "ច្បាប់";
+  if (s === "absent" || s === "អវត្តមាន") return "អវត្តមាន";
+  return "វត្តមាន";
+}
+
+export function toEnglishStatus(status: string): "present" | "permission" | "absent" {
+  if (!status) return "present";
+  const s = status.trim().toLowerCase();
+  if (s === "permission" || s === "ច្បាប់") return "permission";
+  if (s === "absent" || s === "អវត្តមាន") return "absent";
+  return "present";
+}
+
 // Get attendance for a specific date and optional subject
 export async function getAttendanceByDate(
   sheetIdOrUrl: string,
@@ -327,33 +352,52 @@ export async function getAttendanceByDate(
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: "Attendance!A2:G",
+      range: "Attendance!A1:ZZ",
     });
 
     const rows = res.data.values || [];
+    if (rows.length < 2) return {};
+
+    const header = rows[0] || [];
+    const hasSubjectCol = header.length >= 8 && String(header[4] || "").includes("មុខវិជ្ជា");
+
     const recordMap: Record<string, { status: "present" | "permission" | "absent"; note?: string }> = {};
 
-    for (const row of rows) {
-      if (row[0] === date && row[1]) {
-        const rawNote = row[5] || "";
-        const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
-        const rowSubject = match ? match[1].trim() : "";
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[0] || !row[1]) continue;
 
-        if (subject) {
-          if (rowSubject.toLowerCase() === subject.trim().toLowerCase()) {
-            recordMap[row[1]] = {
-              status: (row[4] as any) || "present",
-              note: rawNote.replace(/\[មុខវិជ្ជា:\s*[^\]]+\]\s*/, ""),
-            };
-          }
+      if (row[0] === date) {
+        let rowSubject = "";
+        let rowStatus: "present" | "permission" | "absent" = "present";
+        let rowNote = "";
+
+        if (hasSubjectCol) {
+          // 8-column layout:
+          // A: date, B: id, C: name, D: class, E: subject, F: status, G: note, H: time
+          rowSubject = String(row[4] || "").trim();
+          rowStatus = toEnglishStatus(String(row[5] || ""));
+          rowNote = String(row[6] || "").trim();
         } else {
-          // If no subject requested, return general records (or any)
-          if (!rowSubject) {
-            recordMap[row[1]] = {
-              status: (row[4] as any) || "present",
-              note: rawNote,
-            };
-          }
+          // Legacy 7-column layout:
+          // A: date, B: id, C: name, D: class, E: status, F: note, G: time
+          rowStatus = toEnglishStatus(String(row[4] || ""));
+          const rawNote = String(row[5] || "");
+          const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
+          rowSubject = match ? match[1].trim() : "វត្តមានទូទៅ";
+          rowNote = rawNote.replace(/\[មុខវិជ្ជា:\s*[^\]]+\]\s*/, "").trim();
+        }
+
+        const targetSubject = subject ? subject.trim() : "វត្តមានទូទៅ";
+        const isMatch = subject
+          ? rowSubject.toLowerCase() === targetSubject.toLowerCase()
+          : rowSubject === "" || rowSubject === "វត្តមានទូទៅ" || rowSubject === "ទូទៅ";
+
+        if (isMatch) {
+          recordMap[row[1]] = {
+            status: rowStatus,
+            note: rowNote,
+          };
         }
       }
     }
@@ -372,7 +416,7 @@ export async function saveAttendanceRecords(
     studentId: string;
     studentName: string;
     className: string;
-    status: "present" | "permission" | "absent";
+    status: "present" | "permission" | "absent" | string;
     note?: string;
     subject?: string;
   }>
@@ -384,37 +428,70 @@ export async function saveAttendanceRecords(
   // Read existing Attendance rows
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: "Attendance!A2:G",
+    range: "Attendance!A1:ZZ",
   });
 
-  const existingRows = res.data.values || [];
-  
-  // Create a map of existing row indices for date + studentId + subject
+  const allRows = res.data.values || [];
+  const header = allRows[0] || [];
+  const hasSubjectCol = header.length >= 8 && String(header[4] || "").includes("មុខវិជ្ជា");
+
+  const standardHeaders = [
+    "កាលបរិច្ឆេទ",
+    "ID សិស្ស",
+    "ឈ្មោះសិស្ស",
+    "ថ្នាក់",
+    "មុខវិជ្ជា",
+    "ស្ថានភាពវត្តមាន",
+    "ចំណាំ",
+    "ម៉ោងកត់ត្រា",
+  ];
+
+  // Auto-upgrade header to 8 columns if needed
+  if (!hasSubjectCol) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: "Attendance!A1:H1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [standardHeaders],
+      },
+    });
+  }
+
+  // Create a map of existing row indices (1-indexed for sheets: rowIndex = idx + 1)
   const existingMap = new Map<string, number>();
-  existingRows.forEach((row, idx) => {
+
+  for (let idx = 1; idx < allRows.length; idx++) {
+    const row = allRows[idx];
     if (row && row[0] === date && row[1]) {
-      const rawNote = row[5] || "";
-      const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
-      const rowSubject = match ? match[1].trim().toLowerCase() : "";
+      let rowSubject = "";
+      if (hasSubjectCol) {
+        rowSubject = String(row[4] || "វត្តមានទូទៅ").trim().toLowerCase();
+      } else {
+        const rawNote = String(row[5] || "");
+        const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
+        rowSubject = match ? match[1].trim().toLowerCase() : "វត្តមានទូទៅ";
+      }
       const key = `${row[1]}_${rowSubject}`;
-      existingMap.set(key, idx + 2);
+      existingMap.set(key, idx + 1);
     }
-  });
+  }
 
   const updateRequests: { range: string; values: any[][] }[] = [];
   const appendRows: any[][] = [];
 
   for (const rec of records) {
-    const cleanSub = (rec.subject || "").trim();
-    const subjectPrefix = cleanSub ? `[មុខវិជ្ជា: ${cleanSub}] ` : "";
-    const cleanNote = rec.note ? `${subjectPrefix}${rec.note.trim()}` : subjectPrefix.trim();
+    const cleanSub = (rec.subject || "វត្តមានទូទៅ").trim();
+    const statusKhmer = toKhmerStatus(rec.status);
+    const cleanNote = (rec.note || "").trim();
 
     const rowValues = [
       date,
       rec.studentId,
       rec.studentName,
       rec.className,
-      rec.status,
+      cleanSub,
+      statusKhmer,
       cleanNote,
       now,
     ];
@@ -424,7 +501,7 @@ export async function saveAttendanceRecords(
     if (existingMap.has(key)) {
       const rowNum = existingMap.get(key)!;
       updateRequests.push({
-        range: `Attendance!A${rowNum}:G${rowNum}`,
+        range: `Attendance!A${rowNum}:H${rowNum}`,
         values: [rowValues],
       });
     } else {
@@ -447,7 +524,7 @@ export async function saveAttendanceRecords(
   if (appendRows.length > 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: "Attendance!A:G",
+      range: "Attendance!A:H",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {

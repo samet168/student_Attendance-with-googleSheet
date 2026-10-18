@@ -192,6 +192,7 @@ function AttendanceContent() {
           className: stu.className,
           status: item.status,
           note: item.note,
+          subject: "វត្តមានទូទៅ",
         };
       });
 
