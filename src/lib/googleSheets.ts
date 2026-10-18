@@ -1,5 +1,22 @@
 import { google } from "googleapis";
 
+function formatPrivateKey(rawKey: string): string {
+  if (!rawKey) return "";
+  let key = rawKey.trim();
+  // Strip wrapping quotes if any
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1);
+  }
+  // Replace literal \n with real newline characters
+  key = key.replace(/\\n/g, "\n");
+  // Replace \r\n with \n
+  key = key.replace(/\r\n/g, "\n");
+  return key.trim();
+}
+
 export function getGoogleAuth() {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let privateKey = process.env.GOOGLE_PRIVATE_KEY;
@@ -10,8 +27,7 @@ export function getGoogleAuth() {
     );
   }
 
-  // Handle escaped newlines in private key
-  const formattedKey = privateKey.replace(/\\n/g, "\n");
+  const formattedKey = formatPrivateKey(privateKey);
 
   const auth = new google.auth.JWT({
     email: clientEmail,
