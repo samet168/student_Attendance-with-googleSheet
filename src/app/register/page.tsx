@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import {
   GraduationCap,
   User,
@@ -107,8 +108,15 @@ function RegisterForm() {
       <div className="max-w-md w-full space-y-6">
         {/* Header Branding */}
         <div className="text-center space-y-2">
-          <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 items-center justify-center text-white shadow-lg shadow-emerald-500/25">
-            <GraduationCap className="w-8 h-8" />
+          <div className="inline-flex w-20 h-20 rounded-3xl overflow-hidden shadow-xl shadow-emerald-600/25 relative border border-slate-200/80 bg-white">
+            <Image
+              src="/images/app-logo.png"
+              alt="Logo"
+              fill
+              sizes="80px"
+              className="object-cover"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">
             ទម្រង់ចុះឈ្មោះសិស្ស

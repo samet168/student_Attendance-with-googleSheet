@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Image from "next/image";
 import {
   BookOpen,
   User,
@@ -307,8 +307,15 @@ function SubjectInputContent() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-xs">
-              <BookOpen className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-xs relative border border-slate-200/60 bg-white flex-shrink-0">
+              <Image
+                src="/images/app-logo.png"
+                alt="Logo"
+                fill
+                sizes="40px"
+                className="object-cover"
+                priority
+              />
             </div>
             <div>
               <h1 className="font-bold text-slate-900 text-sm leading-tight">

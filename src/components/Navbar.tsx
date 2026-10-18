@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
@@ -33,8 +34,15 @@ export default function Navbar({ sheetId }: NavbarProps) {
       >
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <BookOpen className="w-5 h-5" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl overflow-hidden shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform flex-shrink-0 relative border border-slate-200/60 bg-white">
+              <Image
+                src="/images/app-logo.png"
+                alt="វត្តមាន & ពិន្ទុ Logo"
+                fill
+                sizes="44px"
+                className="object-cover"
+                priority
+              />
             </div>
             <div>
               <div className="font-bold text-slate-900 leading-tight flex items-center gap-2 text-sm sm:text-base">
