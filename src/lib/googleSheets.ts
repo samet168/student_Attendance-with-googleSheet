@@ -138,6 +138,19 @@ export async function verifyAndInitSheet(sheetIdOrUrl: string): Promise<SheetInf
     });
   }
 
+  // Create 'អវត្តមាន_all_all' sheet if missing (User request: ធ្វើSheet អវត្តមាន_all_all)
+  const hasAbsenceAll = existingSheets.includes("អវត្តមាន_all_all");
+  if (!hasAbsenceAll) {
+    requests.push({
+      addSheet: {
+        properties: {
+          title: "អវត្តមាន_all_all",
+          gridProperties: { rowCount: 200, columnCount: 25, frozenRowCount: 1, frozenColumnCount: 2 },
+        },
+      },
+    });
+  }
+
   if (requests.length > 0) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
@@ -173,8 +186,54 @@ export async function verifyAndInitSheet(sheetIdOrUrl: string): Promise<SheetInf
             "ថ្នាក់",
             "មុខវិជ្ជា",
             "ស្ថានភាពវត្តមាន",
-            "ចំណាំ",
+            "មូលហេតុ",
             "ម៉ោងកត់ត្រា",
+          ],
+        ],
+      },
+    });
+  } else {
+    // Upgrade existing Attendance header if it still uses ចំណាំ
+    try {
+      const attHeadRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: "Attendance!A1:H1",
+      });
+      const attHead = attHeadRes.data.values?.[0] || [];
+      if (attHead.length >= 7 && String(attHead[6] || "").trim() === "ចំណាំ") {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: sheetId,
+          range: "Attendance!G1",
+          valueInputOption: "RAW",
+          requestBody: {
+            values: [["មូលហេតុ"]],
+          },
+        });
+      }
+    } catch (headErr) {
+      console.warn("Could not check/upgrade Attendance header:", headErr);
+    }
+  }
+
+  if (!hasAbsenceAll) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: "'អវត្តមាន_all_all'!A1:K1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [
+          [
+            "ID សិស្ស",
+            "ឈ្មោះពេញ",
+            "ភេទ",
+            "ថ្នាក់",
+            "វត្តមានទូទៅ",
+            "សរុបច្បាប់",
+            "សរុបអវត្តមាន",
+            "សរុបខកខាន",
+            "មូលហេតុ",
+            "ស្ថានភាព",
+            "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព",
           ],
         ],
       },
@@ -442,11 +501,11 @@ export async function saveAttendanceRecords(
     "ថ្នាក់",
     "មុខវិជ្ជា",
     "ស្ថានភាពវត្តមាន",
-    "ចំណាំ",
+    "មូលហេតុ",
     "ម៉ោងកត់ត្រា",
   ];
 
-  // Auto-upgrade header to 8 columns if needed
+  // Auto-upgrade header to 8 columns if needed, and ensure column G is "មូលហេតុ"
   if (!hasSubjectCol) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
@@ -456,6 +515,20 @@ export async function saveAttendanceRecords(
         values: [standardHeaders],
       },
     });
+  } else if (header.length >= 7 && String(header[6] || "").trim() === "ចំណាំ") {
+    // Upgrade existing column G from ចំណាំ to មូលហេតុ
+    try {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: "Attendance!G1",
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [["មូលហេតុ"]],
+        },
+      });
+    } catch (gErr) {
+      console.warn("Could not upgrade Attendance G1 to មូលហេតុ:", gErr);
+    }
   }
 
   // Create a map of existing row indices (1-indexed for sheets: rowIndex = idx + 1)
@@ -549,6 +622,13 @@ export async function saveAttendanceRecords(
     }
   } catch (syncErr) {
     console.warn("Auto-sync dedicated subject sheets failed:", syncErr);
+  }
+
+  // Auto-sync master sheet 'អវត្តមាន_all_all' (User request: ធ្វើSheet អវត្តមាន_all_all)
+  try {
+    await exportAbsenceSummaryToSheet(sheetId, "all", "all");
+  } catch (syncAllErr) {
+    console.warn("Auto-sync អវត្តមាន_all_all failed:", syncAllErr);
   }
 
   return { success: true, count: records.length };
@@ -1362,6 +1442,7 @@ export async function getSubjectAbsenceSummary(
       totalPermission: number;
       totalAbsent: number;
       totalMissed: number;
+      recentReason?: string;
     }
   >();
 
@@ -1426,6 +1507,14 @@ export async function getSubjectAbsenceSummary(
         grandTotalAbsent++;
       }
       studentData.totalMissed++;
+
+      // Collect reason (User request: នៅចំណុចចំណាំនិងប្ដូទៅមូលហេតុ ទាំងweb and sheet)
+      const reasonVal = hasSubjectCol
+        ? String(row[6] || "").trim()
+        : String(row[5] || "").replace(/\[មុខវិជ្ជា:\s*[^\]]+\]\s*/, "").trim();
+      if (reasonVal && !studentData.recentReason) {
+        studentData.recentReason = reasonVal;
+      }
     }
   }
 
@@ -1506,6 +1595,7 @@ export async function exportAbsenceSummaryToSheet(
     "សរុបច្បាប់",
     "សរុបអវត្តមាន",
     "សរុបខកខាន",
+    "មូលហេតុ",
     "ស្ថានភាព",
     "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព",
   ];
@@ -1542,6 +1632,7 @@ export async function exportAbsenceSummaryToSheet(
       st.totalPermission,
       st.totalAbsent,
       st.totalMissed,
+      st.recentReason || "-",
       statusLabel,
       nowStr,
     ];

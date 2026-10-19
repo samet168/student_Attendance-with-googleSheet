@@ -667,10 +667,29 @@ function ClassMonitorContent() {
                       <div className="w-24 sm:w-36">
                         <input
                           type="text"
-                          placeholder="ចំណាំ..."
+                          placeholder={
+                            currentStatus === "absent"
+                              ? "មូលហេតុអវត្តមាន..."
+                              : currentStatus === "permission"
+                              ? "មូលហេតុសុំច្បាប់..."
+                              : "មូលហេតុ..."
+                          }
+                          title={
+                            currentStatus === "absent"
+                              ? "មូលហេតុអវត្តមាន"
+                              : currentStatus === "permission"
+                              ? "មូលហេតុសុំច្បាប់"
+                              : "មូលហេតុ"
+                          }
                           value={currentNote}
                           onChange={(e) => setNote(st.id, e.target.value)}
-                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                          className={`w-full text-xs rounded-xl px-2.5 py-1.5 transition-all text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 ${
+                            currentStatus === "absent"
+                              ? "border border-rose-300 bg-rose-50/50 focus:ring-rose-500 focus:border-rose-500 placeholder:text-rose-400"
+                              : currentStatus === "permission"
+                              ? "border border-amber-300 bg-amber-50/50 focus:ring-amber-500 focus:border-amber-500 placeholder:text-amber-400"
+                              : "border border-slate-200 bg-slate-50 focus:ring-emerald-500 focus:border-emerald-500"
+                          }`}
                         />
                       </div>
                     </div>

@@ -7,6 +7,7 @@ export interface StudentSubjectAbsence {
   totalPermission: number;
   totalAbsent: number;
   totalMissed: number;
+  recentReason?: string;
 }
 
 export interface SubjectAbsenceSummaryData {

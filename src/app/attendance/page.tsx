@@ -555,7 +555,7 @@ function AttendanceContent() {
               title="ស្រង់ទិន្នន័យវត្តមានសរុបគ្រប់ថ្នាក់ និងគ្រប់មុខវិជ្ជា"
             >
               <Users className="w-4 h-4 text-emerald-600" />
-              <span>វត្តមានសរុប (Attendance All)</span>
+              <span>អវត្តមានសរុប (អវត្តមាន_all_all)</span>
             </button>
           </div>
         </div>
@@ -790,10 +790,29 @@ function AttendanceContent() {
 
                         <input
                           type="text"
-                          placeholder="ចំណាំ..."
+                          placeholder={
+                            currentStatus === "absent"
+                              ? "មូលហេតុអវត្តមាន..."
+                              : currentStatus === "permission"
+                              ? "មូលហេតុសុំច្បាប់..."
+                              : "មូលហេតុ..."
+                          }
+                          title={
+                            currentStatus === "absent"
+                              ? "មូលហេតុអវត្តមាន"
+                              : currentStatus === "permission"
+                              ? "មូលហេតុសុំច្បាប់"
+                              : "មូលហេតុ"
+                          }
                           value={currentNote}
                           onChange={(e) => updateStudentNote(student.id, e.target.value)}
-                          className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-24 sm:w-28 text-slate-700 placeholder:text-slate-400"
+                          className={`text-xs px-2.5 py-1.5 rounded-xl border transition-all w-28 sm:w-36 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 ${
+                            currentStatus === "absent"
+                              ? "border-rose-300 bg-rose-50/50 focus:ring-rose-500 focus:border-rose-500 placeholder:text-rose-400"
+                              : currentStatus === "permission"
+                              ? "border-amber-300 bg-amber-50/50 focus:ring-amber-500 focus:border-amber-500 placeholder:text-amber-400"
+                              : "border-slate-200 bg-slate-50 focus:ring-emerald-500 focus:border-emerald-500"
+                          }`}
                         />
                       </div>
                     </div>
@@ -966,7 +985,7 @@ function AttendanceContent() {
                     )}
                     <span>
                       {summaryClass === "all" && summaryMonth === "all"
-                        ? "Sync ទៅ Sheet [អវត្តមាន_all_all]"
+                        ? "ធ្វើ Sheet [អវត្តមាន_all_all]"
                         : "Sync ទៅ Google Sheet"}
                     </span>
                   </button>
@@ -1142,6 +1161,9 @@ function AttendanceContent() {
                           <th className="py-3 px-2.5 text-center bg-purple-50 text-purple-900 w-24 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
                             សរុបខកខាន
                           </th>
+                          <th className="py-3 px-2.5 text-center bg-slate-100 text-slate-700 min-w-[120px] print:min-w-0 print:w-auto print:py-1 print:px-0.5">
+                            មូលហេតុ
+                          </th>
                         </tr>
                       </thead>
 
@@ -1273,6 +1295,11 @@ function AttendanceContent() {
                                   </span>
                                 )}
                               </td>
+
+                              {/* Reason (User request: នៅចំណុចចំណាំនិងប្ដូទៅមូលហេតុ ទាំងweb and sheet) */}
+                              <td className="py-2.5 px-2 text-center text-slate-600 text-[11px] print:text-[8pt] print:py-1 print:px-0.5 truncate max-w-[130px]" title={st.recentReason || "-"}>
+                                {st.recentReason || "-"}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1386,6 +1413,14 @@ function AttendanceContent() {
                         ) : (
                           <div className="pt-2 border-t border-slate-100 text-xs text-slate-400">
                             គ្មានការខកខានមុខវិជ្ជាណាមួយឡើយ
+                          </div>
+                        )}
+
+                        {/* Recent Reason */}
+                        {st.recentReason && (
+                          <div className="pt-2 border-t border-slate-100 text-xs text-slate-700 flex items-center gap-1.5">
+                            <span className="font-bold text-slate-500">មូលហេតុ៖</span>
+                            <span className="text-slate-800">{st.recentReason}</span>
                           </div>
                         )}
                       </div>
