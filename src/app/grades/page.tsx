@@ -492,25 +492,34 @@ function GradesContent() {
 
               {/* Class & Month Selectors */}
               <div className="flex flex-wrap items-center gap-2.5">
-                {/* Class selector */}
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                  {availableClasses.length === 0 ? (
-                    <span className="text-xs text-slate-400 font-medium px-2.5 py-1">មិនទាន់មានថ្នាក់</span>
-                  ) : (
-                    availableClasses.map((cls) => (
-                      <button
-                        key={cls}
-                        onClick={() => setClassName(cls)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          className === cls
-                            ? "bg-white text-emerald-700 shadow-sm"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        ថ្នាក់ {cls}
-                      </button>
-                    ))
-                  )}
+                {/* Class dropdown (Resolves overflow issues when there are many classes) */}
+                <div className="relative">
+                  <select
+                    value={className}
+                    onChange={(e) => {
+                      const newCls = e.target.value;
+                      setClassName(newCls);
+                      if (typeof window !== "undefined") {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("class", newCls);
+                        window.history.replaceState({}, "", url.toString());
+                      }
+                    }}
+                    disabled={availableClasses.length === 0}
+                    className="appearance-none bg-slate-100 hover:bg-slate-200/70 border border-slate-200 font-bold text-xs text-slate-800 py-2 pl-3 pr-8 rounded-xl focus:ring-2 focus:ring-emerald-500 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                    title="ជ្រើសរើសថ្នាក់"
+                  >
+                    {availableClasses.length === 0 ? (
+                      <option value="">មិនទាន់មានថ្នាក់</option>
+                    ) : (
+                      availableClasses.map((cls) => (
+                        <option key={cls} value={cls}>
+                          ថ្នាក់ {cls}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-2.5 pointer-events-none" />
                 </div>
 
                 {/* Month dropdown */}
