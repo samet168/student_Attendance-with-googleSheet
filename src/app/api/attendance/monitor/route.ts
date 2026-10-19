@@ -8,6 +8,7 @@ import {
   dateToKhmerMonth,
   getSubjectTabName,
   exportAbsenceSummaryToSheet,
+  getDiscoveredClassesAndSubjects,
 } from "@/lib/googleSheets";
 
 // GET /api/attendance/monitor?sheetId=...&class=12A&subject=គណិតវិទ្យា&date=2026-10-19&month=តុលា
@@ -27,6 +28,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Discover all classes and subjects dynamically from the spreadsheet
+    const { classes: availableClasses, subjects: availableSubjects } =
+      await getDiscoveredClassesAndSubjects(sheetId);
+
     if (!className) {
       return NextResponse.json({
         success: true,
@@ -38,6 +43,8 @@ export async function GET(req: NextRequest) {
         students: [],
         attendanceMap: {},
         subjectSheet: null,
+        availableClasses,
+        availableSubjects,
       });
     }
 
@@ -68,6 +75,8 @@ export async function GET(req: NextRequest) {
       students: classStudents,
       attendanceMap,
       subjectSheet,
+      availableClasses,
+      availableSubjects,
     });
   } catch (error: any) {
     console.error("Error in GET /api/attendance/monitor:", error);

@@ -83,8 +83,11 @@ function ClassMonitorContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>(
+    DEFAULT_GRADE_SUBJECTS.map((s) => s.name)
+  );
 
-  // Load sheetId and classes dynamically
+  // Discover all classes and subjects dynamically from Google Sheet
   useEffect(() => {
     let currentId = sheetId;
     try {
@@ -101,26 +104,44 @@ function ClassMonitorContent() {
     }
 
     if (currentId) {
-      fetch(`/api/students?sheetId=${encodeURIComponent(currentId)}`)
+      // 1. Fetch monitor info to get all sheet-discovered classes & custom subjects
+      fetch(`/api/attendance/monitor?sheetId=${encodeURIComponent(currentId)}`)
         .then((r) => r.json())
         .then((data) => {
-          if (data.success && Array.isArray(data.students)) {
-            const detected: string[] = Array.from(
-              new Set(data.students.map((s: any) => String(s.className || "").trim()))
-            ).filter((c): c is string => Boolean(c));
-            setAvailableClasses(detected);
-            if (detected.length > 0) {
-              if (!className || !detected.includes(className)) {
-                setClassName(detected[0]);
+          if (data.success) {
+            if (Array.isArray(data.availableClasses) && data.availableClasses.length > 0) {
+              setAvailableClasses((prev) =>
+                Array.from(new Set([...prev, ...data.availableClasses])).filter(Boolean)
+              );
+              if (!className) {
+                setClassName(data.availableClasses[0]);
               }
-            } else {
-              setClassName("");
-              setLoading(false);
+            }
+            if (Array.isArray(data.availableSubjects) && data.availableSubjects.length > 0) {
+              setAvailableSubjects((prev) =>
+                Array.from(new Set([...prev, ...data.availableSubjects])).filter(Boolean)
+              );
             }
           }
         })
-        .catch(() => {
-          setLoading(false);
+        .catch(() => {})
+        .finally(() => {
+          // 2. Also fetch students as supplementary detection
+          fetch(`/api/students?sheetId=${encodeURIComponent(currentId)}`)
+            .then((r) => r.json())
+            .then((stData) => {
+              if (stData.success && Array.isArray(stData.students)) {
+                const detected: string[] = Array.from(
+                  new Set(stData.students.map((s: any) => String(s.className || "").trim()))
+                ).filter((c): c is string => Boolean(c));
+                if (detected.length > 0) {
+                  setAvailableClasses((prev) =>
+                    Array.from(new Set([...prev, ...detected])).filter(Boolean)
+                  );
+                }
+              }
+            })
+            .catch(() => {});
         });
     } else {
       setLoading(false);
@@ -152,6 +173,17 @@ function ClassMonitorContent() {
         throw new Error(data.error || "មិនអាចទាញយកទិន្នន័យបានឡើយ");
       }
 
+      if (data.availableClasses && Array.isArray(data.availableClasses)) {
+        setAvailableClasses((prev) =>
+          Array.from(new Set([...prev, ...data.availableClasses])).filter(Boolean)
+        );
+      }
+      if (data.availableSubjects && Array.isArray(data.availableSubjects)) {
+        setAvailableSubjects((prev) =>
+          Array.from(new Set([...prev, ...data.availableSubjects])).filter(Boolean)
+        );
+      }
+
       const stList: Student[] = data.students || [];
       setStudents(stList);
 
@@ -166,7 +198,6 @@ function ClassMonitorContent() {
             note: existingMap[st.id].note || "",
           };
         } else {
-          // Default to present
           attMap[st.id] = {
             status: "present",
             note: "",
@@ -179,6 +210,34 @@ function ClassMonitorContent() {
       setErrorMessage(err.message || "មានបញ្ហាក្នុងការទាញយកទិន្នន័យ");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClassChange = (newClass: string) => {
+    setClassName(newClass);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("class", newClass);
+      if (sheetId) params.set("sheetId", sheetId);
+      if (subject) params.set("subject", subject);
+      if (month) params.set("month", month);
+      router.replace(`/attendance/monitor?${params.toString()}`);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSubjectChange = (newSub: string) => {
+    setSubject(newSub);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("subject", newSub);
+      if (sheetId) params.set("sheetId", sheetId);
+      if (className) params.set("class", className);
+      if (month) params.set("month", month);
+      router.replace(`/attendance/monitor?${params.toString()}`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -440,14 +499,22 @@ function ClassMonitorContent() {
               </label>
               <select
                 value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                onChange={(e) => handleClassChange(e.target.value)}
+                className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
               >
-                {availableClasses.map((cls) => (
-                  <option key={cls} value={cls}>
-                    ថ្នាក់ {cls}
+                {Array.from(new Set([...availableClasses, ...(className ? [className] : [])])).filter(Boolean).length === 0 ? (
+                  <option value={className || ""}>
+                    {className ? `ថ្នាក់ ${className}` : "-- មិនទាន់មានថ្នាក់ --"}
                   </option>
-                ))}
+                ) : (
+                  Array.from(new Set([...availableClasses, ...(className ? [className] : [])]))
+                    .filter(Boolean)
+                    .map((cls) => (
+                      <option key={cls} value={cls}>
+                        ថ្នាក់ {cls}
+                      </option>
+                    ))
+                )}
               </select>
             </div>
 
@@ -458,15 +525,22 @@ function ClassMonitorContent() {
               </label>
               <select
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                onChange={(e) => handleSubjectChange(e.target.value)}
+                className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
               >
-                {DEFAULT_GRADE_SUBJECTS.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-                <option value="វត្តមានទូទៅ">វត្តមានទូទៅ</option>
+                {Array.from(
+                  new Set([
+                    ...DEFAULT_GRADE_SUBJECTS.map((s) => s.name),
+                    ...availableSubjects,
+                    ...(subject ? [subject] : []),
+                  ])
+                )
+                  .filter((s) => s && s !== "វត្តមានទូទៅ")
+                  .map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
               </select>
             </div>
 

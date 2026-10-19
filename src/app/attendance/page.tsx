@@ -88,7 +88,7 @@ function AttendanceContent() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState(paramClass || "all");
-  const [selectedDailySubject, setSelectedDailySubject] = useState<string>("វត្តមានទូទៅ");
+  const [selectedDailySubject, setSelectedDailySubject] = useState<string>("ភាសាខ្មែរ");
   const [attendanceData, setAttendanceData] = useState<
     Record<string, StudentAttendanceState>
   >({});
@@ -609,7 +609,6 @@ function AttendanceContent() {
                       onChange={(e) => handleDailySubjectChange(e.target.value)}
                       className="bg-transparent font-semibold text-slate-900 outline-none cursor-pointer"
                     >
-                      <option value="វត្តមានទូទៅ">វត្តមានទូទៅ</option>
                       {DEFAULT_GRADE_SUBJECTS.map((s) => (
                         <option key={s.id} value={s.name}>
                           {s.name}
@@ -1137,7 +1136,7 @@ function AttendanceContent() {
                           <th className="py-3 px-2 text-center w-16 print:w-10 print:py-1 print:px-0.5">ថ្នាក់</th>
 
                           {/* Dynamic Subject Columns */}
-                          {summaryData.subjects.map((sub) => (
+                          {summaryData.subjects.filter((s) => s !== "វត្តមានទូទៅ").map((sub) => (
                             <th
                               key={sub}
                               className="py-3 px-2 text-center font-bold min-w-[100px] border-r border-slate-200 print:min-w-0 print:py-1 print:px-0.5 print:text-[7.5pt]"
@@ -1153,13 +1152,10 @@ function AttendanceContent() {
 
                           {/* Totals Columns */}
                           <th className="py-3 px-2.5 text-center bg-amber-50/70 text-amber-800 w-20 border-r border-slate-200 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
-                            សរុបច្បាប់
+                            ច្បាប់សរុប
                           </th>
                           <th className="py-3 px-2.5 text-center bg-rose-50/70 text-rose-800 w-20 border-r border-slate-200 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
-                            សរុបអវត្តមាន
-                          </th>
-                          <th className="py-3 px-2.5 text-center bg-purple-50 text-purple-900 w-24 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
-                            សរុបខកខាន
+                            ឥតច្បាប់សរុប
                           </th>
                           <th className="py-3 px-2.5 text-center bg-slate-100 text-slate-700 min-w-[120px] print:min-w-0 print:w-auto print:py-1 print:px-0.5">
                             មូលហេតុ
@@ -1225,7 +1221,7 @@ function AttendanceContent() {
                               </td>
 
                               {/* Dynamic Subjects Absence Badges */}
-                              {summaryData.subjects.map((sub) => {
+                              {summaryData.subjects.filter((s) => s !== "វត្តមានទូទៅ").map((sub) => {
                                 const rec = st.subjects[sub];
                                 if (!rec || (rec.permission === 0 && rec.absent === 0)) {
                                   return (
@@ -1265,35 +1261,14 @@ function AttendanceContent() {
                                 );
                               })}
 
-                              {/* Total Permission */}
+                              {/* Total Permission (ច្បាប់សរុប) */}
                               <td className="py-2.5 px-2 text-center font-bold text-amber-700 bg-amber-50/30 border-r border-slate-100 print:bg-transparent print:text-black print:py-1 print:px-0.5 print:text-[8pt]">
                                 {st.totalPermission > 0 ? st.totalPermission : "-"}
                               </td>
 
-                              {/* Total Absent */}
+                              {/* Total Absent (ឥតច្បាប់សរុប) */}
                               <td className="py-2.5 px-2 text-center font-bold text-rose-700 bg-rose-50/30 border-r border-slate-100 print:bg-transparent print:text-black print:py-1 print:px-0.5 print:text-[8pt]">
                                 {st.totalAbsent > 0 ? st.totalAbsent : "-"}
-                              </td>
-
-                              {/* Grand Total Missed */}
-                              <td className="py-2.5 px-2 text-center bg-purple-50/40 print:bg-transparent print:py-1 print:px-0.5">
-                                {st.totalMissed === 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 print:bg-transparent print:border-none print:text-black print:text-[8pt]">
-                                    <Check className="w-3 h-3 print:hidden" /> ពេញ
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black print:bg-transparent print:text-black print:text-[8pt] print:p-0 ${
-                                      hasHighAbsence
-                                        ? "bg-rose-600 text-white shadow-sm"
-                                        : hasWarning
-                                        ? "bg-amber-500 text-white"
-                                        : "bg-slate-200 text-slate-800"
-                                    }`}
-                                  >
-                                    {st.totalMissed}
-                                  </span>
-                                )}
                               </td>
 
                               {/* Reason (User request: នៅចំណុចចំណាំនិងប្ដូទៅមូលហេតុ ទាំងweb and sheet) */}
@@ -1431,18 +1406,15 @@ function AttendanceContent() {
                 {/* Printable Signature Section (Only in print view) */}
                 <div className="hidden print:grid grid-cols-2 pt-10 text-center text-xs">
                   <div>
-                    <p className="font-bold">បានឃើញ និងអនុម័ត</p>
-                    <p className="font-semibold text-slate-600">នាយក/នាយិកាសាលា</p>
+                    <p className="font-semibold text-slate-700">នាយក/នាយិកាសាលា</p>
                     <div className="h-20"></div>
-                    <p className="font-bold text-slate-400">ហត្ថលេខា & ត្រា</p>
                   </div>
                   <div>
-                    <p className="font-bold">
+                    <p className="font-semibold text-slate-700">
                       រាជធានី/ខេត្ត, ថ្ងៃទី......... ខែ......... ឆ្នាំ២០២...
                     </p>
                     <p className="font-semibold text-slate-600">គ្រូបន្ទុកថ្នាក់</p>
                     <div className="h-20"></div>
-                    <p className="font-bold text-slate-400">ហត្ថលេខា</p>
                   </div>
                 </div>
               </>

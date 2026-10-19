@@ -1367,9 +1367,8 @@ export async function getSubjectAbsenceSummary(
   });
 
   const allRows = res.data.values || [];
-  // Base subjects to always include in the matrix
+  // Base subjects to always include in the matrix (User request: exclude វត្តមានទូទៅ)
   const standardSubjects = [
-    "វត្តមានទូទៅ",
     ...DEFAULT_GRADE_SUBJECTS.map((s) => s.name),
   ];
 
@@ -1484,7 +1483,9 @@ export async function getSubjectAbsenceSummary(
     }
 
     if (status === "permission" || status === "absent") {
-      distinctSubjectsSet.add(sub);
+      if (sub && sub !== "វត្តមានទូទៅ") {
+        distinctSubjectsSet.add(sub);
+      }
       const studentData = studentMap.get(stuId)!;
 
       if (!studentData.subjects[sub]) {
@@ -1579,7 +1580,8 @@ export async function exportAbsenceSummaryToSheet(
     }
   }
 
-  const subjects = summary.subjects.length > 0 ? summary.subjects : ["វត្តមានទូទៅ"];
+  const cleanSubjects = summary.subjects.filter((s) => s !== "វត្តមានទូទៅ");
+  const subjects = cleanSubjects.length > 0 ? cleanSubjects : DEFAULT_GRADE_SUBJECTS.map((s) => s.name);
 
   if (!tabExists) {
     await sheets.spreadsheets.batchUpdate({
@@ -1604,16 +1606,15 @@ export async function exportAbsenceSummaryToSheet(
     });
   }
 
-  // Headers
+  // Headers (User request: ច្បាប់សរុប, ឥតច្បាប់សរុប, delete សរុបខកខាន, delete វត្តមានទូទៅ)
   const headers = [
     "ID សិស្ស",
     "ឈ្មោះពេញ",
     "ភេទ",
     "ថ្នាក់",
     ...subjects,
-    "សរុបច្បាប់",
-    "សរុបអវត្តមាន",
-    "សរុបខកខាន",
+    "ច្បាប់សរុប",
+    "ឥតច្បាប់សរុប",
     "មូលហេតុ",
     "ស្ថានភាព",
     "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព",
@@ -1650,7 +1651,6 @@ export async function exportAbsenceSummaryToSheet(
       ...subjectCells,
       st.totalPermission,
       st.totalAbsent,
-      st.totalMissed,
       st.recentReason || "-",
       statusLabel,
       nowStr,
@@ -2000,5 +2000,102 @@ export async function syncSubjectSheet(
   return { tabName, updatedRows: dataRows.length };
 }
 
+// Discover all classes and subjects (including teacher-added custom subjects) across the spreadsheet
+export async function getDiscoveredClassesAndSubjects(
+  sheetIdOrUrl: string
+): Promise<{ classes: string[]; subjects: string[] }> {
+  const sheetId = extractSheetId(sheetIdOrUrl);
+  const sheets = getSheetsClient();
 
+  const classSet = new Set<string>();
+  const subjectSet = new Set<string>(DEFAULT_GRADE_SUBJECTS.map((s) => s.name));
 
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const sheetTitles = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
+
+    // 1. Discover classes and subjects from sheet tab titles
+    for (const title of sheetTitles) {
+      if (title.startsWith("ថ្នាក់_")) {
+        const cls = title.replace("ថ្នាក់_", "").trim();
+        if (cls) classSet.add(cls);
+      } else if (title.startsWith("ពិន្ទុ_")) {
+        const parts = title.replace("ពិន្ទុ_", "").split("_");
+        if (parts[0]) classSet.add(parts[0].trim());
+      } else if (title !== "Students" && title !== "Attendance" && !title.startsWith("អវត្តមាន")) {
+        const parts = title.split("_");
+        if (parts.length >= 2) {
+          const sub = parts[0].trim();
+          const cls = parts[1].trim();
+          if (sub && sub !== "វត្តមានទូទៅ") subjectSet.add(sub);
+          if (cls) classSet.add(cls);
+        }
+      }
+    }
+
+    // 2. Discover classes from Students tab
+    try {
+      const studentsRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: "Students!E2:E",
+      });
+      const rows = studentsRes.data.values || [];
+      rows.forEach((r) => {
+        const c = String(r?.[0] || "").trim();
+        if (c) classSet.add(c);
+      });
+    } catch (e) {
+      console.warn("Could not read classes from Students tab:", e);
+    }
+
+    // 3. Discover custom subjects from grade tab headers
+    const gradeTabs = sheetTitles.filter((s) => s.startsWith("ពិន្ទុ_"));
+    for (const gTab of gradeTabs.slice(0, 3)) {
+      try {
+        const headerRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: sheetId,
+          range: `'${gTab}'!1:1`,
+        });
+        const headerRow = headerRes.data.values?.[0] || [];
+        const suffixHeaders = ["ពិន្ទុសរុប", "មធ្យមភាគ", "ចំណាត់ថ្នាក់", "និទ្ទេស", "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព"];
+        const endIdx = headerRow.findIndex((h: any) => suffixHeaders.includes(String(h).trim()));
+        if (endIdx > 3) {
+          headerRow.slice(3, endIdx).forEach((h: any) => {
+            const sub = String(h || "").trim();
+            if (sub && sub !== "វត្តមានទូទៅ") subjectSet.add(sub);
+          });
+        }
+      } catch (e) {
+        console.warn(`Could not read headers from ${gTab}:`, e);
+      }
+    }
+
+    // 4. Discover custom subjects from 'អវត្តមានទាំងអស់' tab headers if exists
+    if (sheetTitles.includes("អវត្តមានទាំងអស់")) {
+      try {
+        const absHeaderRes = await sheets.spreadsheets.values.get({
+          spreadsheetId: sheetId,
+          range: `'អវត្តមានទាំងអស់'!1:1`,
+        });
+        const headerRow = absHeaderRes.data.values?.[0] || [];
+        const endSuffixes = ["ច្បាប់សរុប", "សរុបច្បាប់", "ឥតច្បាប់សរុប", "សរុបអវត្តមាន", "សរុបខកខាន", "មូលហេតុ"];
+        const endIdx = headerRow.findIndex((h: any) => endSuffixes.includes(String(h).trim()));
+        if (endIdx > 4) {
+          headerRow.slice(4, endIdx).forEach((h: any) => {
+            const sub = String(h || "").trim();
+            if (sub && sub !== "វត្តមានទូទៅ") subjectSet.add(sub);
+          });
+        }
+      } catch (e) {
+        console.warn("Could not read headers from អវត្តមានទាំងអស់:", e);
+      }
+    }
+  } catch (err) {
+    console.warn("Could not discover classes and subjects from sheets:", err);
+  }
+
+  const classes = Array.from(classSet).filter(Boolean);
+  const subjects = Array.from(subjectSet).filter(Boolean);
+
+  return { classes, subjects };
+}

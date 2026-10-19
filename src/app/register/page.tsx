@@ -297,12 +297,12 @@ function RegisterForm() {
                 />
               </div>
 
-              {/* Class / Subject */}
+              {/* Class */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>ថ្នាក់រៀន / មុខវិជ្ជា *</span>
+                    <span>ថ្នាក់រៀន *</span>
                   </span>
                   {presetClass && (
                     <span className="text-[11px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold border border-emerald-200 flex items-center gap-1">
@@ -322,7 +322,7 @@ function RegisterForm() {
                     required
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
-                    placeholder="ឧ. 12A, 12B ឬ ភាសាអង់គ្លេស"
+                    placeholder="ឧ. 12A, 12B, 10C"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm placeholder:text-slate-400"
                   />
                 )}
