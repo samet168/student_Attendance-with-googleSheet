@@ -33,3 +33,42 @@ button, a, input, select {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Print optimizations for Grade & Attendance matrices (Landscape A4) */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 6mm 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 8.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  th,
+  td {
+    word-break: normal !important;
+    white-space: nowrap !important;
+  }
+}

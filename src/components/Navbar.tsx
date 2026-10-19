@@ -30,7 +30,7 @@ export default function Navbar({ sheetId }: NavbarProps) {
     <>
       {/* Top Header */}
       <header
-        className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200"
+        className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 print:hidden no-print"
         suppressHydrationWarning
       >
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -125,7 +125,7 @@ export default function Navbar({ sheetId }: NavbarProps) {
 
       {/* Mobile Bottom App Navigation Bar (Native App Style) */}
       {sheetId && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-1 px-3 flex items-center justify-around md:hidden shadow-lg">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 py-1 px-3 flex items-center justify-around md:hidden shadow-lg print:hidden no-print">
           {/* Tab 1: Home */}
           <Link
             href="/"

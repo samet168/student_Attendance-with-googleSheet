@@ -1105,41 +1105,41 @@ function AttendanceContent() {
                     <TableIcon className="w-3.5 h-3.5 text-slate-400" />
                   </div>
 
-                  <div className="overflow-x-auto relative">
-                    <table className="w-full text-xs text-left border-collapse min-w-[700px] print:min-w-full">
+                  <div className="overflow-x-auto relative print:overflow-visible">
+                    <table className="w-full text-xs text-left border-collapse min-w-[700px] print:min-w-0 print:text-[8pt]">
                       <thead>
-                        <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold">
-                          <th className="py-3 px-2 text-center w-10">#</th>
+                        <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-bold print:border-b print:border-slate-400">
+                          <th className="py-3 px-2 text-center w-10 print:w-6 print:py-1 print:px-0.5">#</th>
                           {/* Pinned Sticky Name Column */}
-                          <th className="py-3 px-3 min-w-[140px] sticky left-0 z-20 bg-slate-100 border-r border-slate-200 shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
+                          <th className="py-3 px-3 min-w-[140px] sticky left-0 z-20 bg-slate-100 border-r border-slate-200 shadow-[2px_0_4px_rgba(0,0,0,0.02)] print:static print:shadow-none print:min-w-0 print:py-1 print:px-1">
                             ឈ្មោះសិស្ស
                           </th>
-                          <th className="py-3 px-2 text-center w-12">ភេទ</th>
-                          <th className="py-3 px-2 text-center w-16">ថ្នាក់</th>
+                          <th className="py-3 px-2 text-center w-12 print:w-8 print:py-1 print:px-0.5">ភេទ</th>
+                          <th className="py-3 px-2 text-center w-16 print:w-10 print:py-1 print:px-0.5">ថ្នាក់</th>
 
                           {/* Dynamic Subject Columns */}
                           {summaryData.subjects.map((sub) => (
                             <th
                               key={sub}
-                              className="py-3 px-2 text-center font-bold min-w-[100px] border-r border-slate-200"
+                              className="py-3 px-2 text-center font-bold min-w-[100px] border-r border-slate-200 print:min-w-0 print:py-1 print:px-0.5 print:text-[7.5pt]"
                             >
-                              <span className="block truncate max-w-[110px]" title={sub}>
+                              <span className="block truncate max-w-[110px] print:max-w-none print:whitespace-nowrap" title={sub}>
                                 {sub}
                               </span>
-                              <span className="text-[9px] font-normal text-slate-400 block mt-0.5">
+                              <span className="text-[9px] font-normal text-slate-400 block mt-0.5 print:text-[6.5pt]">
                                 ច / អ
                               </span>
                             </th>
                           ))}
 
                           {/* Totals Columns */}
-                          <th className="py-3 px-2.5 text-center bg-amber-50/70 text-amber-800 w-20 border-r border-slate-200">
+                          <th className="py-3 px-2.5 text-center bg-amber-50/70 text-amber-800 w-20 border-r border-slate-200 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
                             សរុបច្បាប់
                           </th>
-                          <th className="py-3 px-2.5 text-center bg-rose-50/70 text-rose-800 w-20 border-r border-slate-200">
+                          <th className="py-3 px-2.5 text-center bg-rose-50/70 text-rose-800 w-20 border-r border-slate-200 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
                             សរុបអវត្តមាន
                           </th>
-                          <th className="py-3 px-2.5 text-center bg-purple-50 text-purple-900 w-24">
+                          <th className="py-3 px-2.5 text-center bg-purple-50 text-purple-900 w-24 print:bg-transparent print:text-black print:min-w-0 print:w-auto print:py-1 print:px-0.5">
                             សរុបខកខាន
                           </th>
                         </tr>
@@ -1153,7 +1153,7 @@ function AttendanceContent() {
                           return (
                             <tr
                               key={st.studentId}
-                              className={`hover:bg-slate-50 transition-colors ${
+                              className={`hover:bg-slate-50 transition-colors print:border-b print:border-slate-300 ${
                                 hasHighAbsence
                                   ? "bg-rose-50/30"
                                   : hasWarning
@@ -1162,35 +1162,35 @@ function AttendanceContent() {
                               }`}
                             >
                               {/* Row Index */}
-                              <td className="py-2.5 px-2 text-center font-mono text-slate-400 text-[11px]">
+                              <td className="py-2.5 px-2 text-center font-mono text-slate-400 text-[11px] print:text-black print:text-[8pt] print:py-1 print:px-0.5">
                                 {idx + 1}
                               </td>
 
                               {/* Pinned Sticky Name Column */}
                               <td
-                                className={`py-2.5 px-3 font-bold sticky left-0 z-10 border-r border-slate-200 shadow-[2px_0_4px_rgba(0,0,0,0.02)] ${
+                                className={`py-2.5 px-3 font-bold sticky left-0 z-10 border-r border-slate-200 shadow-[2px_0_4px_rgba(0,0,0,0.02)] print:static print:shadow-none print:py-1 print:px-1 ${
                                   hasHighAbsence
-                                    ? "bg-rose-50/80 text-rose-900"
+                                    ? "bg-rose-50/80 text-rose-900 print:bg-transparent print:text-black"
                                     : hasWarning
-                                    ? "bg-amber-50/80 text-amber-900"
-                                    : "bg-white text-slate-900"
+                                    ? "bg-amber-50/80 text-amber-900 print:bg-transparent print:text-black"
+                                    : "bg-white text-slate-900 print:bg-transparent print:text-black"
                                 }`}
                               >
-                                <div className="truncate max-w-[130px]" title={st.studentName}>
+                                <div className="truncate max-w-[130px] print:max-w-none print:text-[8pt] print:whitespace-nowrap" title={st.studentName}>
                                   {st.studentName}
                                 </div>
-                                <div className="text-[10px] text-slate-400 font-mono font-normal">
+                                <div className="text-[10px] text-slate-400 font-mono font-normal print:hidden">
                                   {st.studentId}
                                 </div>
                               </td>
 
                               {/* Gender */}
-                              <td className="py-2.5 px-2 text-center">
+                              <td className="py-2.5 px-2 text-center print:py-1 print:px-0.5">
                                 <span
-                                  className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                  className={`text-[10px] px-1.5 py-0.5 rounded font-medium print:text-[8pt] print:p-0 print:bg-transparent ${
                                     st.gender === "ស្រី"
-                                      ? "bg-pink-50 text-pink-700"
-                                      : "bg-blue-50 text-blue-700"
+                                      ? "bg-pink-50 text-pink-700 print:text-black"
+                                      : "bg-blue-50 text-blue-700 print:text-black"
                                   }`}
                                 >
                                   {st.gender}
@@ -1198,7 +1198,7 @@ function AttendanceContent() {
                               </td>
 
                               {/* Class */}
-                              <td className="py-2.5 px-2 text-center font-medium text-slate-600 text-[11px]">
+                              <td className="py-2.5 px-2 text-center font-medium text-slate-600 text-[11px] print:text-black print:text-[8pt] print:py-1 print:px-0.5">
                                 {st.className}
                               </td>
 
@@ -1209,7 +1209,7 @@ function AttendanceContent() {
                                   return (
                                     <td
                                       key={sub}
-                                      className="py-2.5 px-2 text-center text-slate-300 font-mono border-r border-slate-100"
+                                      className="py-2.5 px-2 text-center text-slate-300 font-mono border-r border-slate-100 print:py-1 print:px-0.5 print:text-[8pt] print:text-slate-400"
                                     >
                                       -
                                     </td>
@@ -1219,12 +1219,12 @@ function AttendanceContent() {
                                 return (
                                   <td
                                     key={sub}
-                                    className="py-2.5 px-2 text-center border-r border-slate-100"
+                                    className="py-2.5 px-2 text-center border-r border-slate-100 print:py-1 print:px-0.5"
                                   >
-                                    <div className="flex items-center justify-center gap-1">
+                                    <div className="flex items-center justify-center gap-1 print:gap-0.5">
                                       {rec.permission > 0 && (
                                         <span
-                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
+                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 print:bg-transparent print:border-none print:text-black print:text-[7.5pt] print:p-0"
                                           title={`សុំច្បាប់៖ ${rec.permission} ម៉ោង`}
                                         >
                                           ច:{rec.permission}
@@ -1232,7 +1232,7 @@ function AttendanceContent() {
                                       )}
                                       {rec.absent > 0 && (
                                         <span
-                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 print:bg-transparent print:border-none print:text-black print:text-[7.5pt] print:p-0"
                                           title={`អវត្តមានឥតច្បាប់៖ ${rec.absent} ម៉ោង`}
                                         >
                                           អ:{rec.absent}
@@ -1244,24 +1244,24 @@ function AttendanceContent() {
                               })}
 
                               {/* Total Permission */}
-                              <td className="py-2.5 px-2 text-center font-bold text-amber-700 bg-amber-50/30 border-r border-slate-100">
+                              <td className="py-2.5 px-2 text-center font-bold text-amber-700 bg-amber-50/30 border-r border-slate-100 print:bg-transparent print:text-black print:py-1 print:px-0.5 print:text-[8pt]">
                                 {st.totalPermission > 0 ? st.totalPermission : "-"}
                               </td>
 
                               {/* Total Absent */}
-                              <td className="py-2.5 px-2 text-center font-bold text-rose-700 bg-rose-50/30 border-r border-slate-100">
+                              <td className="py-2.5 px-2 text-center font-bold text-rose-700 bg-rose-50/30 border-r border-slate-100 print:bg-transparent print:text-black print:py-1 print:px-0.5 print:text-[8pt]">
                                 {st.totalAbsent > 0 ? st.totalAbsent : "-"}
                               </td>
 
                               {/* Grand Total Missed */}
-                              <td className="py-2.5 px-2 text-center bg-purple-50/40">
+                              <td className="py-2.5 px-2 text-center bg-purple-50/40 print:bg-transparent print:py-1 print:px-0.5">
                                 {st.totalMissed === 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                    <Check className="w-3 h-3" /> ពេញ
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 print:bg-transparent print:border-none print:text-black print:text-[8pt]">
+                                    <Check className="w-3 h-3 print:hidden" /> ពេញ
                                   </span>
                                 ) : (
                                   <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black ${
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black print:bg-transparent print:text-black print:text-[8pt] print:p-0 ${
                                       hasHighAbsence
                                         ? "bg-rose-600 text-white shadow-sm"
                                         : hasWarning

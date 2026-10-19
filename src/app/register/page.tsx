@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   GraduationCap,
   User,
@@ -14,6 +15,9 @@ import {
   Send,
   UserPlus,
   Lock,
+  ArrowLeft,
+  Home,
+  UserCheck,
 } from "lucide-react";
 
 function RegisterForm() {
@@ -104,11 +108,35 @@ function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 py-6 sm:py-8 px-4 pb-20 flex flex-col items-center justify-center" suppressHydrationWarning>
-      <div className="max-w-md w-full space-y-6">
+    <div className="min-h-screen bg-slate-100/70 py-4 sm:py-8 px-4 pb-20 flex flex-col items-center justify-center" suppressHydrationWarning>
+      <div className="max-w-md w-full space-y-4 sm:space-y-6">
+        {/* Top Back Action Bar (Image 1 fix) */}
+        <div className="flex items-center justify-between w-full">
+          <Link
+            href={
+              className
+                ? `/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(className)}`
+                : `/?sheetId=${encodeURIComponent(sheetId)}`
+            }
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-slate-700 hover:text-slate-900 border border-slate-200 shadow-xs font-semibold text-xs transition-all active:scale-95"
+            title="ត្រឡប់ក្រោយ"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>ត្រឡប់ក្រោយ</span>
+          </Link>
+
+          <Link
+            href={`/?sheetId=${encodeURIComponent(sheetId)}`}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-xs font-semibold text-xs transition-all active:scale-95"
+          >
+            <Home className="w-3.5 h-3.5 text-emerald-600" />
+            <span>ទំព័រដើម</span>
+          </Link>
+        </div>
+
         {/* Header Branding */}
         <div className="text-center space-y-2">
-          <div className="inline-flex w-20 h-20 rounded-3xl overflow-hidden shadow-xl shadow-emerald-600/25 relative border border-slate-200/80 bg-white">
+          <div className="inline-flex w-16 h-16 sm:w-20 sm:h-20 rounded-3xl overflow-hidden shadow-xl shadow-emerald-600/25 relative border border-slate-200/80 bg-white">
             <Image
               src="/images/app-logo.png"
               alt="Logo"
@@ -118,7 +146,7 @@ function RegisterForm() {
               priority
             />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
             ទម្រង់ចុះឈ្មោះសិស្ស
           </h1>
           <p className="text-xs text-slate-500">
@@ -128,16 +156,16 @@ function RegisterForm() {
 
         {/* Success Card */}
         {registeredStudent ? (
-          <div className="bg-white rounded-3xl p-7 border border-emerald-200 shadow-xl text-center space-y-5 animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-10 h-10" />
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-xl text-center space-y-5 animate-in zoom-in-95 duration-300">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
 
             <div className="space-y-1">
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                 ជោគជ័យ
               </span>
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
                 ចុះឈ្មោះបានជោគជ័យ!
               </h2>
               <p className="text-xs text-slate-500">
@@ -167,13 +195,38 @@ function RegisterForm() {
               </div>
             </div>
 
-            <button
-              onClick={() => setRegisteredStudent(null)}
-              className="w-full py-3 px-4 rounded-xl font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2 text-sm"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>ចុះឈ្មោះសិស្សម្នាក់ទៀត</span>
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setRegisteredStudent(null)}
+                className="w-full py-3 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm shadow-md shadow-emerald-600/20 active:scale-98 cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>ចុះឈ្មោះសិស្សម្នាក់ទៀត</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <Link
+                  href={`/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
+                    registeredStudent.className || className
+                  )}`}
+                  className="py-2.5 px-2 sm:px-3 rounded-xl font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1.5 text-[11px] sm:text-xs active:scale-98 truncate"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="truncate">តារាងពិន្ទុ</span>
+                </Link>
+
+                <Link
+                  href={`/attendance?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
+                    registeredStudent.className || className
+                  )}`}
+                  className="py-2.5 px-2 sm:px-3 rounded-xl font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1.5 text-[11px] sm:text-xs active:scale-98 truncate"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">តារាងវត្តមាន</span>
+                </Link>
+              </div>
+            </div>
           </div>
         ) : (
           /* Input Form Card */
