@@ -467,7 +467,7 @@ function AttendanceContent() {
                 href={`/attendance/monitor?sheetId=${encodeURIComponent(
                   sheetId
                 )}&class=${encodeURIComponent(
-                  selectedClass !== "all" ? selectedClass : "12A"
+                  selectedClass !== "all" && selectedClass ? selectedClass : (classes[0] || "")
                 )}&subject=${encodeURIComponent(
                   selectedDailySubject !== "វត្តមានទូទៅ" ? selectedDailySubject : "គណិតវិទ្យា"
                 )}`}
@@ -482,7 +482,7 @@ function AttendanceContent() {
                 href={`/attendance/qr?sheetId=${encodeURIComponent(
                   sheetId
                 )}&class=${encodeURIComponent(
-                  selectedClass !== "all" ? selectedClass : "12A"
+                  selectedClass !== "all" && selectedClass ? selectedClass : (classes[0] || "")
                 )}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors shadow-xs"
                 title="សន្លឹក QR Code តាមមុខវិជ្ជា"
@@ -493,7 +493,9 @@ function AttendanceContent() {
 
               <Link
                 href={`/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
-                  viewMode === "summary" ? summaryClass : selectedClass
+                  viewMode === "summary"
+                    ? (summaryClass !== "all" ? summaryClass : (classes[0] || ""))
+                    : (selectedClass !== "all" ? selectedClass : (classes[0] || ""))
                 )}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors"
               >
@@ -530,13 +532,30 @@ function AttendanceContent() {
               type="button"
               onClick={() => handleSwitchView("summary")}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                viewMode === "summary"
+                viewMode === "summary" && (summaryClass !== "all" || summaryMonth !== "all")
                   ? "bg-white text-emerald-700 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <BarChart3 className="w-4 h-4 text-emerald-600" />
               <span>តារាងសរុបអវត្តមានតាមមុខវិជ្ជា</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSummaryClass("all");
+                setSummaryMonth("all");
+                handleSwitchView("summary");
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                viewMode === "summary" && summaryClass === "all" && summaryMonth === "all"
+                  ? "bg-white text-emerald-700 shadow-sm border border-emerald-200/50"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="ស្រង់ទិន្នន័យវត្តមានសរុបគ្រប់ថ្នាក់ និងគ្រប់មុខវិជ្ជា"
+            >
+              <Users className="w-4 h-4 text-emerald-600" />
+              <span>វត្តមានសរុប (Attendance All)</span>
             </button>
           </div>
         </div>
@@ -912,20 +931,44 @@ function AttendanceContent() {
                     </button>
                   </div>
 
+                  {/* Quick All-in-One Toggle Button */}
+                  {(summaryClass !== "all" || summaryMonth !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSummaryClass("all");
+                        setSummaryMonth("all");
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs border border-purple-200 transition-colors shadow-xs"
+                      title="ជ្រើសរើសគ្រប់ថ្នាក់ និងគ្រប់ខែ"
+                    >
+                      <Users className="w-3.5 h-3.5 text-purple-600" />
+                      <span>មើលគ្រប់ថ្នាក់ & គ្រប់ខែ</span>
+                    </button>
+                  )}
+
                   {/* Sync to Sheet Button */}
                   <button
                     type="button"
                     onClick={handleExportSummaryToSheet}
                     disabled={exporting || !summaryData}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 transition-all disabled:bg-slate-300"
-                    title="បង្កើតសន្លឹកកិច្ចការថ្មីក្នុង Google Sheet"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 transition-all disabled:bg-slate-300 cursor-pointer"
+                    title={
+                      summaryClass === "all" && summaryMonth === "all"
+                        ? "Sync ទៅសន្លឹកកិច្ចការ [អវត្តមាន_all_all] ក្នុង Google Sheet"
+                        : "Sync ទៅ Google Sheet"
+                    }
                   >
                     {exporting ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <FileSpreadsheet className="w-3.5 h-3.5" />
                     )}
-                    <span>Sync ទៅ Google Sheet</span>
+                    <span>
+                      {summaryClass === "all" && summaryMonth === "all"
+                        ? "Sync ទៅ Sheet [អវត្តមាន_all_all]"
+                        : "Sync ទៅ Google Sheet"}
+                    </span>
                   </button>
 
                   {/* Print Button */}

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sheetId = searchParams.get("sheetId");
-    const className = searchParams.get("class") || "12A";
+    const className = searchParams.get("class") || "";
     const subject = searchParams.get("subject") || "គណិតវិទ្យា";
     const date = searchParams.get("date") || new Date().toISOString().split("T")[0];
     const month = searchParams.get("month") || dateToKhmerMonth(date);
@@ -24,6 +24,20 @@ export async function GET(req: NextRequest) {
         { success: false, error: "សូមបញ្ជាក់ Google Sheet ID" },
         { status: 400 }
       );
+    }
+
+    if (!className) {
+      return NextResponse.json({
+        success: true,
+        className: "",
+        subject,
+        month,
+        date,
+        tabName: "",
+        students: [],
+        attendanceMap: {},
+        subjectSheet: null,
+      });
     }
 
     // 1. Get students for this class

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sheetId = searchParams.get("sheetId");
-    const className = searchParams.get("class") || "12A";
+    const className = searchParams.get("class") || "";
     const month = searchParams.get("month") || "តុលា";
 
     if (!sheetId) {
@@ -17,6 +17,20 @@ export async function GET(req: NextRequest) {
         { success: false, error: "សូមបញ្ជាក់ Google Sheet ID" },
         { status: 400 }
       );
+    }
+
+    if (!className) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          sheetTitle: "ពិន្ទុ",
+          className: "",
+          month,
+          subjects: [],
+          students: [],
+          subjectStats: {},
+        },
+      });
     }
 
     const data = await getOrInitGradesMatrix(sheetId, className, month);

@@ -38,7 +38,7 @@ interface AttendanceState {
 function SubjectInputContent() {
   const searchParams = useSearchParams();
   const sheetId = searchParams.get("sheetId") || "";
-  const className = searchParams.get("class") || "12A";
+  const className = searchParams.get("class") || "";
   const month = searchParams.get("month") || "តុលា";
   const subject = searchParams.get("subject") || "គណិតវិទ្យា";
 
@@ -65,6 +65,12 @@ function SubjectInputContent() {
   useEffect(() => {
     if (!sheetId) {
       setError("មិនមាន Google Sheet ID ក្នុងតំណភ្ជាប់នេះទេ។ សូមទាក់ទងលោកគ្រូ/អ្នកគ្រូបន្ទុកថ្នាក់។");
+      setLoading(false);
+      return;
+    }
+
+    if (!className) {
+      setError("មិនទាន់បានកំណត់ថ្នាក់រៀនឡើយ។ សូមចូលតាមតំណភ្ជាប់ ឬ QR Code ដែលបានផ្ដល់ជូន។");
       setLoading(false);
       return;
     }

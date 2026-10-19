@@ -626,8 +626,11 @@ export function getGradeTabName(className: string, month: string): string {
 
 export function getSubjectTabName(subject: string, className: string, month: string): string {
   const cleanSub = (subject || "គណិតវិទ្យា").trim();
-  const cleanClass = (className || "12A").trim();
+  const cleanClass = (className || "").trim();
   const cleanMonth = (month || "តុលា").trim();
+  if (!cleanClass) {
+    return sanitizeTabName(`${cleanSub}_${cleanMonth}`);
+  }
   return sanitizeTabName(`${cleanSub}_${cleanClass}_${cleanMonth}`);
 }
 
@@ -717,6 +720,23 @@ export async function getOrInitGradesMatrix(
 ): Promise<GradesMatrixData> {
   const sheetId = extractSheetId(sheetIdOrUrl);
   const sheets = getSheetsClient();
+  const defaultSubjects =
+    customSubjects && customSubjects.length > 0
+      ? customSubjects
+      : DEFAULT_GRADE_SUBJECTS.map((s) => s.name);
+
+  // If no class specified, return empty matrix without creating tabs
+  if (!className || className.trim() === "") {
+    return {
+      sheetTitle: "ពិន្ទុ",
+      className: "",
+      month: month || "តុលា",
+      subjects: defaultSubjects,
+      students: [],
+      subjectStats: {},
+    };
+  }
+
   const tabName = getGradeTabName(className, month);
 
   // 1. Get all registered students in this class
@@ -730,9 +750,6 @@ export async function getOrInitGradesMatrix(
   const existingSheets = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
   const tabExists = existingSheets.includes(tabName);
 
-  const defaultSubjects = (customSubjects && customSubjects.length > 0)
-    ? customSubjects
-    : DEFAULT_GRADE_SUBJECTS.map((s) => s.name);
 
   if (!tabExists) {
     // Create new tab
@@ -1125,10 +1142,16 @@ export async function getSubjectAbsenceSummary(
   });
 
   const allRows = res.data.values || [];
+  // Base subjects to always include in the matrix
+  const standardSubjects = [
+    "វត្តមានទូទៅ",
+    ...DEFAULT_GRADE_SUBJECTS.map((s) => s.name),
+  ];
+
   if (allRows.length < 2) {
     return {
       className: className || "all",
-      subjects: [],
+      subjects: standardSubjects,
       students: filteredStudents.map((s) => ({
         studentId: s.id,
         studentName: s.name,
@@ -1149,7 +1172,8 @@ export async function getSubjectAbsenceSummary(
   const header = allRows[0] || [];
   const hasSubjectCol = header.length >= 8 && String(header[4] || "").includes("មុខវិជ្ជា");
 
-  const distinctSubjectsSet = new Set<string>();
+  // Initialize with standard subjects so EVERY subject is always present
+  const distinctSubjectsSet = new Set<string>(standardSubjects);
   const studentMap = new Map<
     string,
     {
@@ -1256,12 +1280,18 @@ export async function exportAbsenceSummaryToSheet(
 
   const summary = await getSubjectAbsenceSummary(sheetId, className, month);
 
-  const cleanClass = className === "all" ? "គ្រប់ថ្នាក់" : (className.trim() || "ទូទៅ");
-  const cleanMonth = month === "all" ? "សរុប" : (month.trim() || "សរុប");
-  const tabName = sanitizeTabName(`អវត្តមាន_${cleanClass}_${cleanMonth}`);
-
   const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
   const existingSheets = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
+
+  let tabName = "";
+  if ((!className || className === "all") && (!month || month === "all")) {
+    tabName = "អវត្តមាន_all_all";
+  } else {
+    const cleanClass = className === "all" ? "គ្រប់ថ្នាក់" : (className.trim() || "ទូទៅ");
+    const cleanMonth = month === "all" ? "សរុប" : (month.trim() || "សរុប");
+    tabName = sanitizeTabName(`អវត្តមាន_${cleanClass}_${cleanMonth}`);
+  }
+
   const tabExists = existingSheets.includes(tabName);
 
   const subjects = summary.subjects.length > 0 ? summary.subjects : ["វត្តមានទូទៅ"];
@@ -1368,9 +1398,29 @@ export async function getSubjectSheetData(
   const sheetId = extractSheetId(sheetIdOrUrl);
   const sheets = getSheetsClient();
 
-  const cleanClass = (className || "12A").trim();
+  const cleanClass = (className || "").trim();
   const cleanMonth = (month || "តុលា").trim();
   const cleanSubject = (subject || "គណិតវិទ្យា").trim();
+
+  if (!cleanClass) {
+    return {
+      tabName: "",
+      className: "",
+      month: cleanMonth,
+      subject: cleanSubject,
+      students: [],
+      stats: {
+        totalStudents: 0,
+        scoredCount: 0,
+        averageScore: "-",
+        totalPresent: 0,
+        totalPermission: 0,
+        totalAbsent: 0,
+        totalMissed: 0,
+      },
+    };
+  }
+
   const tabName = getSubjectTabName(cleanSubject, cleanClass, cleanMonth);
 
   // 1. Get class students
@@ -1529,6 +1579,9 @@ export async function syncSubjectSheet(
   month: string,
   subject: string
 ): Promise<{ tabName: string; updatedRows: number }> {
+  if (!className || className.trim() === "") {
+    return { tabName: "", updatedRows: 0 };
+  }
   const sheetId = extractSheetId(sheetIdOrUrl);
   const sheets = getSheetsClient();
 

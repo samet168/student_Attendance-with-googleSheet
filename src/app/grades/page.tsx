@@ -33,6 +33,7 @@ import {
   X,
   Trash2,
   BarChart3,
+  UserPlus,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { StudentGradeRow, DEFAULT_GRADE_SUBJECTS } from "@/types/grades";
@@ -56,10 +57,10 @@ const MONTHS_LIST = [
 function GradesContent() {
   const searchParams = useSearchParams();
   const [sheetId, setSheetId] = useState(searchParams.get("sheetId") || "");
-  const [className, setClassName] = useState(searchParams.get("class") || "12A");
+  const [className, setClassName] = useState(searchParams.get("class") || "");
   const [month, setMonth] = useState(searchParams.get("month") || "តុលា");
 
-  const [availableClasses, setAvailableClasses] = useState<string[]>(["12", "12A"]);
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>(
     DEFAULT_GRADE_SUBJECTS.map((s) => s.name)
   );
@@ -79,31 +80,53 @@ function GradesContent() {
   const [qrModalSubject, setQrModalSubject] = useState<string | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  // Initialize sheetId and classes from localStorage if not in URL
+  // Initialize sheetId and classes from students list if not in URL
   useEffect(() => {
+    let currentId = sheetId;
     try {
       const saved = localStorage.getItem("connected_sheet");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.id && !sheetId) {
+        if (parsed.id && !currentId) {
+          currentId = parsed.id;
           setSheetId(parsed.id);
-        }
-        const savedClasses = localStorage.getItem(`classes_${parsed.id}`);
-        if (savedClasses) {
-          const cls = JSON.parse(savedClasses);
-          if (Array.isArray(cls) && cls.length > 0) {
-            setAvailableClasses(cls);
-          }
         }
       }
     } catch (e) {
       console.error(e);
     }
+
+    if (currentId) {
+      // Dynamically load classes from actual registered students
+      fetch(`/api/students?sheetId=${encodeURIComponent(currentId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.students)) {
+            const detected: string[] = Array.from(
+              new Set(data.students.map((s: any) => String(s.className || "").trim()))
+            ).filter((c): c is string => Boolean(c));
+            setAvailableClasses(detected);
+            if (detected.length > 0) {
+              if (!className || !detected.includes(className)) {
+                setClassName(detected[0]);
+              }
+            } else {
+              setClassName("");
+              setLoading(false);
+            }
+          }
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
   }, [sheetId]);
 
   // Load matrix from API
   const fetchMatrix = async () => {
-    if (!sheetId) {
+    if (!sheetId || !className) {
       setLoading(false);
       return;
     }
@@ -422,19 +445,23 @@ function GradesContent() {
               <div className="flex flex-wrap items-center gap-2.5">
                 {/* Class selector */}
                 <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                  {availableClasses.map((cls) => (
-                    <button
-                      key={cls}
-                      onClick={() => setClassName(cls)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        className === cls
-                          ? "bg-white text-emerald-700 shadow-sm"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      ថ្នាក់ {cls}
-                    </button>
-                  ))}
+                  {availableClasses.length === 0 ? (
+                    <span className="text-xs text-slate-400 font-medium px-2.5 py-1">មិនទាន់មានថ្នាក់</span>
+                  ) : (
+                    availableClasses.map((cls) => (
+                      <button
+                        key={cls}
+                        onClick={() => setClassName(cls)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          className === cls
+                            ? "bg-white text-emerald-700 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        ថ្នាក់ {cls}
+                      </button>
+                    ))
+                  )}
                 </div>
 
                 {/* Month dropdown */}
@@ -841,6 +868,26 @@ function GradesContent() {
               <p className="text-sm text-slate-500 font-medium">
                 កំពុងទាញយកតារាងពិន្ទុពី Google Sheet...
               </p>
+            </div>
+          ) : availableClasses.length === 0 || !className ? (
+            <div className="p-16 text-center space-y-3">
+              <GraduationCap className="w-12 h-12 text-slate-300 mx-auto" />
+              <h3 className="font-bold text-slate-800 text-base">
+                មិនទាន់មានថ្នាក់រៀន ឬសិស្សនៅក្នុងប្រព័ន្ធនៅឡើយទេ
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                នៅពេលចាប់ផ្ដើមគម្រោងដំបូង មិនតម្រូវឱ្យមានថ្នាក់ជាមុនឡើយ។ សូមចុះឈ្មោះសិស្សថ្មី ប្រព័ន្ធនឹងបង្កើតថ្នាក់រៀនដោយស្វ័យប្រវត្តិតាមឈ្មោះថ្នាក់ដែលសិស្សបានចុះឈ្មោះ។
+              </p>
+              <div className="pt-2">
+                <Link
+                  href={`/register?sheetId=${encodeURIComponent(sheetId)}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>ចុះឈ្មោះសិស្សថ្មី</span>
+                </Link>
+              </div>
             </div>
           ) : students.length === 0 ? (
             <div className="p-16 text-center space-y-2">

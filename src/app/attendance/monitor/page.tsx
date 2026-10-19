@@ -62,7 +62,7 @@ function ClassMonitorContent() {
   const searchParams = useSearchParams();
 
   const paramSheetId = searchParams.get("sheetId") || "";
-  const paramClass = searchParams.get("class") || "12A";
+  const paramClass = searchParams.get("class") || "";
   const paramSubject = searchParams.get("subject") || "គណិតវិទ្យា";
   const paramMonth = searchParams.get("month") || "តុលា";
 
@@ -82,33 +82,54 @@ function ClassMonitorContent() {
   const [successTabName, setSuccessTabName] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [availableClasses, setAvailableClasses] = useState<string[]>([paramClass]);
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
 
-  // Load sheetId and classes from localStorage if missing
+  // Load sheetId and classes dynamically
   useEffect(() => {
+    let currentId = sheetId;
     try {
       const saved = localStorage.getItem("connected_sheet");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.id && !sheetId) {
+        if (parsed.id && !currentId) {
+          currentId = parsed.id;
           setSheetId(parsed.id);
-        }
-        const savedClasses = localStorage.getItem(`classes_${parsed.id}`);
-        if (savedClasses) {
-          const cls = JSON.parse(savedClasses);
-          if (Array.isArray(cls) && cls.length > 0) {
-            setAvailableClasses(cls);
-          }
         }
       }
     } catch (e) {
       console.error(e);
     }
+
+    if (currentId) {
+      fetch(`/api/students?sheetId=${encodeURIComponent(currentId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.students)) {
+            const detected: string[] = Array.from(
+              new Set(data.students.map((s: any) => String(s.className || "").trim()))
+            ).filter((c): c is string => Boolean(c));
+            setAvailableClasses(detected);
+            if (detected.length > 0) {
+              if (!className || !detected.includes(className)) {
+                setClassName(detected[0]);
+              }
+            } else {
+              setClassName("");
+              setLoading(false);
+            }
+          }
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
   }, [sheetId]);
 
   // Fetch students and existing attendance for selected date & subject
   const loadMonitorData = async () => {
-    if (!sheetId) {
+    if (!sheetId || !className) {
       setLoading(false);
       return;
     }
