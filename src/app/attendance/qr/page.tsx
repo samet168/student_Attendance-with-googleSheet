@@ -22,7 +22,6 @@ import { DEFAULT_GRADE_SUBJECTS } from "@/types/grades";
 
 const ALL_SUBJECTS = [
   ...DEFAULT_GRADE_SUBJECTS,
-  { id: "general", name: "វត្តមានទូទៅ", maxScore: 50 },
 ];
 
 const MONTHS_LIST = [
@@ -53,23 +52,33 @@ function SubjectQrCardsContent() {
   const [subjectsList, setSubjectsList] = useState<Array<{ id: string; name: string }>>(ALL_SUBJECTS);
 
   useEffect(() => {
-    if (sheetId && className) {
+    if (sheetId) {
       fetch(
-        `/api/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
-          className
+        `/api/attendance/monitor?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
+          className || ""
         )}&month=${encodeURIComponent(month)}`
       )
         .then((r) => r.json())
         .then((res) => {
-          if (res.success && Array.isArray(res.data?.subjects) && res.data.subjects.length > 0) {
-            const combined = Array.from(
-              new Set(["វត្តមានទូទៅ", ...res.data.subjects])
-            ).map((sub, idx) => ({
-              id: `sub_${idx}`,
-              name: sub,
-              maxScore: 50,
-            }));
-            setSubjectsList(combined);
+          if (res.success) {
+            if (Array.isArray(res.availableClasses) && res.availableClasses.length > 0) {
+              setAvailableClasses((prev) =>
+                Array.from(new Set([...prev, ...res.availableClasses])).filter(Boolean)
+              );
+              if (!className) {
+                setClassName(res.availableClasses[0]);
+              }
+            }
+            if (Array.isArray(res.availableSubjects) && res.availableSubjects.length > 0) {
+              const cleanSubjects = res.availableSubjects
+                .filter((s: string) => s && s !== "វត្តមានទូទៅ")
+                .map((sub: string, idx: number) => ({
+                  id: `sub_${idx}`,
+                  name: sub,
+                  maxScore: 50,
+                }));
+              setSubjectsList(cleanSubjects);
+            }
           }
         })
         .catch((err) => console.error("Error loading subjects for QR:", err));
@@ -103,13 +112,13 @@ function SubjectQrCardsContent() {
             const detected: string[] = Array.from(
               new Set(data.students.map((s: any) => String(s.className || "").trim()))
             ).filter((c): c is string => Boolean(c));
-            setAvailableClasses(detected);
             if (detected.length > 0) {
+              setAvailableClasses((prev) =>
+                Array.from(new Set([...prev, ...detected])).filter(Boolean)
+              );
               if (!className || !detected.includes(className)) {
                 setClassName(detected[0]);
               }
-            } else {
-              setClassName("");
             }
           }
         })
