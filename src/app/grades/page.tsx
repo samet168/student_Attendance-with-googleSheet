@@ -76,6 +76,7 @@ function GradesContent() {
   const [copiedSubject, setCopiedSubject] = useState<string | null>(null);
   const [isPrintMode, setIsPrintMode] = useState(false);
   const [showAddSubject, setShowAddSubject] = useState(false);
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [newSubjectInput, setNewSubjectInput] = useState("");
   const [qrModalSubject, setQrModalSubject] = useState<string | null>(null);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -299,7 +300,7 @@ function GradesContent() {
     setTimeout(() => setCopiedSubject(null), 3000);
   };
 
-  const handleAddSubject = () => {
+  const handleAddSubject = async () => {
     const trimmed = newSubjectInput.trim();
     if (!trimmed) return;
     if (subjects.includes(trimmed)) {
@@ -308,38 +309,85 @@ function GradesContent() {
       return;
     }
 
-    const updatedSubjects = [...subjects, trimmed];
-    setSubjects(updatedSubjects);
+    if (!sheetId || !className) {
+      setError("សូមជ្រើសរើសថ្នាក់រៀនជាមុនសិន");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
 
-    setStudents((prev) =>
-      prev.map((st) => ({
-        ...st,
-        scores: { ...st.scores, [trimmed]: "" },
-      }))
-    );
+    setIsAddingSubject(true);
+    setError(null);
+    setSuccessMsg(null);
 
-    setNewSubjectInput("");
-    setShowAddSubject(false);
-    setSuccessMsg(`បានបន្ថែមមុខវិជ្ជា «${trimmed}» ជោគជ័យ! សូមចុច «រក្សាទុកទាំងអស់» ដើម្បី Sync ចូល Google Sheet។`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+    try {
+      const res = await fetch("/api/grades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_subject",
+          sheetId,
+          className,
+          month,
+          subject: trimmed,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "បរាជ័យក្នុងការបន្ថែមមុខវិជ្ជាចូល Google Sheet");
+      }
+
+      setSubjects(json.data.subjects || [...subjects, trimmed]);
+      setStudents(json.data.students || []);
+      setSubjectStats(json.data.subjectStats || {});
+      setNewSubjectInput("");
+      setShowAddSubject(false);
+      setSuccessMsg(`បានបន្ថែមមុខវិជ្ជា «${trimmed}» និងបង្កើត Sheet ចូល Google Sheet ដោយជោគជ័យ!`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setIsAddingSubject(false);
+    }
   };
 
-  const handleRemoveSubject = (subjectName: string) => {
-    if (!confirm(`តើអ្នកពិតជាចង់លុបមុខវិជ្ជា «${subjectName}» មែនទេ?`)) return;
+  const handleRemoveSubject = async (subjectName: string) => {
+    if (!confirm(`តើអ្នកពិតជាចង់លុបមុខវិជ្ជា «${subjectName}» ចេញពី Google Sheet មែនទេ?`)) return;
 
-    const updatedSubjects = subjects.filter((s) => s !== subjectName);
-    setSubjects(updatedSubjects);
+    setSaving(true);
+    setError(null);
+    setSuccessMsg(null);
 
-    setStudents((prev) =>
-      prev.map((st) => {
-        const copyScores = { ...st.scores };
-        delete copyScores[subjectName];
-        return { ...st, scores: copyScores };
-      })
-    );
+    try {
+      const res = await fetch("/api/grades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "remove_subject",
+          sheetId,
+          className,
+          month,
+          subject: subjectName,
+        }),
+      });
 
-    setSuccessMsg(`បានលុបមុខវិជ្ជា «${subjectName}»! សូមចុច «រក្សាទុកទាំងអស់» ដើម្បីកត់ត្រាការផ្លាស់ប្តូរ។`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "បរាជ័យក្នុងការលុបមុខវិជ្ជាពី Google Sheet");
+      }
+
+      setSubjects(json.data.subjects || subjects.filter((s) => s !== subjectName));
+      setStudents(json.data.students || []);
+      setSubjectStats(json.data.subjectStats || {});
+      setSuccessMsg(`បានលុបមុខវិជ្ជា «${subjectName}» ចេញពី Google Sheet រួចរាល់!`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const downloadSubjectQR = () => {
@@ -613,17 +661,26 @@ function GradesContent() {
                     type="text"
                     placeholder="ឧ. កីឡា, ព័ត៌មានវិទ្យា, គំនូរ, ភាសាបារាំង..."
                     value={newSubjectInput}
+                    disabled={isAddingSubject}
                     onChange={(e) => setNewSubjectInput(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-50"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddSubject();
+                      if (e.key === "Enter" && !isAddingSubject) handleAddSubject();
                     }}
                   />
                   <button
                     onClick={handleAddSubject}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    disabled={isAddingSubject || !newSubjectInput.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs"
                   >
-                    បន្ថែម
+                    {isAddingSubject ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>កំពុងបញ្ចូល...</span>
+                      </>
+                    ) : (
+                      <span>បន្ថែម</span>
+                    )}
                   </button>
                 </div>
                 {/* Quick suggestions */}

@@ -50,6 +50,31 @@ function SubjectQrCardsContent() {
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
   const [copiedSubject, setCopiedSubject] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState<string>("");
+  const [subjectsList, setSubjectsList] = useState<Array<{ id: string; name: string }>>(ALL_SUBJECTS);
+
+  useEffect(() => {
+    if (sheetId && className) {
+      fetch(
+        `/api/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
+          className
+        )}&month=${encodeURIComponent(month)}`
+      )
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success && Array.isArray(res.data?.subjects) && res.data.subjects.length > 0) {
+            const combined = Array.from(
+              new Set(["វត្តមានទូទៅ", ...res.data.subjects])
+            ).map((sub, idx) => ({
+              id: `sub_${idx}`,
+              name: sub,
+              maxScore: 50,
+            }));
+            setSubjectsList(combined);
+          }
+        })
+        .catch((err) => console.error("Error loading subjects for QR:", err));
+    }
+  }, [sheetId, className, month]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -223,7 +248,7 @@ function SubjectQrCardsContent() {
 
         {/* Printable Grid of Subject QR Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 print:grid-cols-2 print:gap-4 print:p-0">
-          {ALL_SUBJECTS.map((sub) => {
+          {subjectsList.map((sub) => {
             const monitorLink = getMonitorLink(sub.name);
             const isCopied = copiedSubject === sub.name;
 

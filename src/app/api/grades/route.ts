@@ -3,6 +3,8 @@ import {
   getOrInitGradesMatrix,
   saveSubjectGrades,
   saveFullGradesMatrix,
+  addSubjectToGradeMatrix,
+  removeSubjectFromGradeMatrix,
 } from "@/lib/googleSheets";
 
 export async function GET(req: NextRequest) {
@@ -52,6 +54,30 @@ export async function POST(req: NextRequest) {
         { success: false, error: "សូមផ្ដល់ព័ត៌មាន sheetId, className និង month ឱ្យបានគ្រប់គ្រាន់" },
         { status: 400 }
       );
+    }
+
+    if (action === "add_subject") {
+      const { subject } = body;
+      if (!subject || typeof subject !== "string" || !subject.trim()) {
+        return NextResponse.json(
+          { success: false, error: "សូមផ្ដល់ឈ្មោះមុខវិជ្ជា" },
+          { status: 400 }
+        );
+      }
+      const data = await addSubjectToGradeMatrix(sheetId, className, month, subject.trim());
+      return NextResponse.json({ success: true, data });
+    }
+
+    if (action === "remove_subject") {
+      const { subject } = body;
+      if (!subject || typeof subject !== "string" || !subject.trim()) {
+        return NextResponse.json(
+          { success: false, error: "សូមផ្ដល់ឈ្មោះមុខវិជ្ជាដែលត្រូវលុប" },
+          { status: 400 }
+        );
+      }
+      const data = await removeSubjectFromGradeMatrix(sheetId, className, month, subject.trim());
+      return NextResponse.json({ success: true, data });
     }
 
     if (action === "save_subject") {

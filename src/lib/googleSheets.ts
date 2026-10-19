@@ -750,6 +750,29 @@ export async function getOrInitGradesMatrix(
   const existingSheets = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
   const tabExists = existingSheets.includes(tabName);
 
+  // Discover any custom subjects added across other grade tabs so new tabs inherit them
+  let activeSubjects = [...defaultSubjects];
+  const otherGradeTabs = existingSheets.filter((s) => s.startsWith("ពិន្ទុ_") && s !== tabName);
+  if (otherGradeTabs.length > 0) {
+    try {
+      const sampleTab = otherGradeTabs[0];
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${sampleTab}'!1:1`,
+      });
+      const sampleHeader = headerRes.data.values?.[0] || [];
+      const sampleSuffixHeaders = ["ពិន្ទុសរុប", "មធ្យមភាគ", "ចំណាត់ថ្នាក់", "និទ្ទេស", "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព"];
+      const sampleEndIdx = sampleHeader.findIndex((h: any) => sampleSuffixHeaders.includes(String(h).trim()));
+      if (sampleEndIdx > 3) {
+        const discovered = sampleHeader.slice(3, sampleEndIdx).map((h: any) => String(h).trim()).filter(Boolean);
+        if (discovered.length > 0) {
+          activeSubjects = Array.from(new Set([...activeSubjects, ...discovered]));
+        }
+      }
+    } catch (e) {
+      console.warn("Could not inherit subjects from existing grade tab:", e);
+    }
+  }
 
   if (!tabExists) {
     // Create new tab
@@ -763,7 +786,7 @@ export async function getOrInitGradesMatrix(
                 title: tabName,
                 gridProperties: {
                   rowCount: Math.max(100, classStudents.length + 10),
-                  columnCount: defaultSubjects.length + 10,
+                  columnCount: activeSubjects.length + 10,
                   frozenRowCount: 1,
                   frozenColumnCount: 3,
                 },
@@ -779,7 +802,7 @@ export async function getOrInitGradesMatrix(
       "ID សិស្ស",
       "ឈ្មោះពេញ",
       "ភេទ",
-      ...defaultSubjects,
+      ...activeSubjects,
       "ពិន្ទុសរុប",
       "មធ្យមភាគ",
       "ចំណាត់ថ្នាក់",
@@ -788,7 +811,7 @@ export async function getOrInitGradesMatrix(
     ];
 
     const initialRows = classStudents.map((s) => {
-      const emptyScores = defaultSubjects.map(() => "");
+      const emptyScores = activeSubjects.map(() => "");
       return [s.id, s.name, s.gender, ...emptyScores, "", "", "", "", ""];
     });
 
@@ -813,7 +836,7 @@ export async function getOrInitGradesMatrix(
     }));
 
     const subjectStats: Record<string, { submittedCount: number; totalCount: number }> = {};
-    for (const sub of defaultSubjects) {
+    for (const sub of activeSubjects) {
       subjectStats[sub] = { submittedCount: 0, totalCount: classStudents.length };
     }
 
@@ -821,7 +844,7 @@ export async function getOrInitGradesMatrix(
       sheetTitle: meta.data.properties?.title || "Sheet",
       className,
       month,
-      subjects: defaultSubjects,
+      subjects: activeSubjects,
       students,
       subjectStats,
     };
@@ -1091,6 +1114,47 @@ export async function saveFullGradesMatrix(
     now,
   ]);
 
+  // Ensure sheet column count can fit all headers
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const sheetObj = meta.data.sheets?.find((s) => s.properties?.title === tabName);
+    if (sheetObj?.properties?.gridProperties?.columnCount) {
+      const currentCols = sheetObj.properties.gridProperties.columnCount;
+      if (currentCols < headers.length + 2) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: {
+            requests: [
+              {
+                updateSheetProperties: {
+                  properties: {
+                    sheetId: sheetObj.properties.sheetId,
+                    gridProperties: {
+                      columnCount: headers.length + 5,
+                    },
+                  },
+                  fields: "gridProperties.columnCount",
+                },
+              },
+            ],
+          },
+        });
+      }
+    }
+  } catch (propErr) {
+    console.warn("Could not verify sheet column count:", propErr);
+  }
+
+  // Clear existing cells before rewriting so no ghost headers remain
+  try {
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: `'${tabName}'!A1:ZZ`,
+    });
+  } catch (clearErr) {
+    // Ignore clear error if tab is newly created
+  }
+
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range: `'${tabName}'!A1`,
@@ -1117,6 +1181,93 @@ export async function saveFullGradesMatrix(
     students: computedStudents,
     subjectStats,
   };
+}
+
+// Add a new subject to Grade Matrix and automatically create dedicated subject sheet
+export async function addSubjectToGradeMatrix(
+  sheetIdOrUrl: string,
+  className: string,
+  month: string,
+  newSubject: string
+): Promise<GradesMatrixData> {
+  const cleanSubject = (newSubject || "").trim();
+  if (!cleanSubject) {
+    throw new Error("សូមបញ្ចូលឈ្មោះមុខវិជ្ជា");
+  }
+
+  const sheetId = extractSheetId(sheetIdOrUrl);
+  const matrix = await getOrInitGradesMatrix(sheetId, className, month);
+
+  // If already exists, still ensure dedicated sheet tab is synced
+  if (matrix.subjects.includes(cleanSubject)) {
+    try {
+      await syncSubjectSheet(sheetId, className, month, cleanSubject);
+    } catch (err) {
+      console.warn("Could not sync dedicated subject sheet:", err);
+    }
+    return matrix;
+  }
+
+  const updatedSubjects = [...matrix.subjects, cleanSubject];
+  const updatedStudents: StudentGradeRow[] = matrix.students.map((st) => ({
+    ...st,
+    scores: {
+      ...st.scores,
+      [cleanSubject]: "" as const,
+    },
+  }));
+
+  // 1. Save the full matrix so the new subject column is written immediately to Google Sheet
+  const savedMatrix = await saveFullGradesMatrix(
+    sheetId,
+    className,
+    month,
+    updatedSubjects,
+    updatedStudents
+  );
+
+  // 2. Immediately create and sync the dedicated sheet tab for this subject (e.g. ព័ត៌មានវិទ្យា_10D_តុលា)
+  try {
+    await syncSubjectSheet(sheetId, className, month, cleanSubject);
+  } catch (err) {
+    console.warn("Could not sync dedicated subject sheet for new subject:", err);
+  }
+
+  return savedMatrix;
+}
+
+// Remove a subject from Grade Matrix and update Google Sheet
+export async function removeSubjectFromGradeMatrix(
+  sheetIdOrUrl: string,
+  className: string,
+  month: string,
+  subjectToRemove: string
+): Promise<GradesMatrixData> {
+  const cleanSubject = (subjectToRemove || "").trim();
+  const sheetId = extractSheetId(sheetIdOrUrl);
+  const matrix = await getOrInitGradesMatrix(sheetId, className, month);
+
+  if (!matrix.subjects.includes(cleanSubject)) {
+    return matrix;
+  }
+
+  const updatedSubjects = matrix.subjects.filter((s) => s !== cleanSubject);
+  const updatedStudents: StudentGradeRow[] = matrix.students.map((st) => {
+    const copyScores: Record<string, number | ""> = { ...st.scores };
+    delete copyScores[cleanSubject];
+    return {
+      ...st,
+      scores: copyScores,
+    };
+  });
+
+  return await saveFullGradesMatrix(
+    sheetId,
+    className,
+    month,
+    updatedSubjects,
+    updatedStudents
+  );
 }
 
 // Calculate Subject Absence Summary Matrix for a class/month
@@ -1147,6 +1298,32 @@ export async function getSubjectAbsenceSummary(
     "វត្តមានទូទៅ",
     ...DEFAULT_GRADE_SUBJECTS.map((s) => s.name),
   ];
+
+  // Discover any custom subjects added across grade tabs
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const existingSheets = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
+    const gradeTabs = existingSheets.filter((s) => s.startsWith("ពិន្ទុ_"));
+    if (gradeTabs.length > 0) {
+      const headerRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${gradeTabs[0]}'!1:1`,
+      });
+      const sampleHeader = headerRes.data.values?.[0] || [];
+      const suffixHeaders = ["ពិន្ទុសរុប", "មធ្យមភាគ", "ចំណាត់ថ្នាក់", "និទ្ទេស", "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព"];
+      const endIdx = sampleHeader.findIndex((h: any) => suffixHeaders.includes(String(h).trim()));
+      if (endIdx > 3) {
+        sampleHeader.slice(3, endIdx).forEach((h: any) => {
+          const sub = String(h || "").trim();
+          if (sub && !standardSubjects.includes(sub)) {
+            standardSubjects.push(sub);
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Could not check custom subjects for absence summary:", err);
+  }
 
   if (allRows.length < 2) {
     return {
