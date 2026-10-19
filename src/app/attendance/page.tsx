@@ -555,7 +555,7 @@ function AttendanceContent() {
               title="ស្រង់ទិន្នន័យវត្តមានសរុបគ្រប់ថ្នាក់ និងគ្រប់មុខវិជ្ជា"
             >
               <Users className="w-4 h-4 text-emerald-600" />
-              <span>អវត្តមានសរុប (អវត្តមាន_all_all)</span>
+              <span>អវត្តមានសរុប (អវត្តមានទាំងអស់)</span>
             </button>
           </div>
         </div>
@@ -974,7 +974,7 @@ function AttendanceContent() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 transition-all disabled:bg-slate-300 cursor-pointer"
                     title={
                       summaryClass === "all" && summaryMonth === "all"
-                        ? "Sync ទៅសន្លឹកកិច្ចការ [អវត្តមាន_all_all] ក្នុង Google Sheet"
+                        ? "Sync ទៅសន្លឹកកិច្ចការ [អវត្តមានទាំងអស់] ក្នុង Google Sheet"
                         : "Sync ទៅ Google Sheet"
                     }
                   >
@@ -985,7 +985,7 @@ function AttendanceContent() {
                     )}
                     <span>
                       {summaryClass === "all" && summaryMonth === "all"
-                        ? "ធ្វើ Sheet [អវត្តមាន_all_all]"
+                        ? "ធ្វើ Sheet [អវត្តមានទាំងអស់]"
                         : "Sync ទៅ Google Sheet"}
                     </span>
                   </button>

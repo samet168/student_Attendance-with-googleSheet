@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAttendanceByDate, saveAttendanceRecords } from "@/lib/googleSheets";
+import {
+  getAttendanceByDate,
+  saveAttendanceRecords,
+  exportAbsenceSummaryToSheet,
+} from "@/lib/googleSheets";
 
 // GET /api/attendance?sheetId=...&date=YYYY-MM-DD
 export async function GET(req: NextRequest) {
@@ -41,9 +45,17 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await saveAttendanceRecords(sheetId, date, records);
+
+    // Auto-sync master sheet 'អវត្តមានទាំងអស់' (User request: auto sync ទាំងsheet វត្តមានតាមមុខវិជ្ជានិងអវត្តមានall)
+    try {
+      await exportAbsenceSummaryToSheet(sheetId, "all", "all");
+    } catch (syncAllErr) {
+      console.warn("Auto-sync អវត្តមានទាំងអស់ in /api/attendance failed:", syncAllErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: "រក្សាទុកវត្តមានបានជោគជ័យ!",
+      message: "រក្សាទុកវត្តមាន និងធ្វើបច្ចុប្បន្នភាព Sheet ស្វ័យប្រវត្តបានជោគជ័យ!",
       result,
     });
   } catch (error: any) {

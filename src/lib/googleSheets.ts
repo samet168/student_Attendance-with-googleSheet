@@ -138,14 +138,26 @@ export async function verifyAndInitSheet(sheetIdOrUrl: string): Promise<SheetInf
     });
   }
 
-  // Create 'អវត្តមាន_all_all' sheet if missing (User request: ធ្វើSheet អវត្តមាន_all_all)
-  const hasAbsenceAll = existingSheets.includes("អវត្តមាន_all_all");
-  if (!hasAbsenceAll) {
+  // Create or rename 'អវត្តមានទាំងអស់' sheet (User request: កែអវត្តមាន_all_all ទៅ អវត្តមានទាំងអស់)
+  const oldAbsenceAll = spreadsheet.sheets?.find((s: any) => s.properties?.title === "អវត្តមាន_all_all");
+  let hasAbsenceAll = existingSheets.includes("អវត្តមានទាំងអស់");
+  if (oldAbsenceAll && oldAbsenceAll.properties?.sheetId !== undefined && !hasAbsenceAll) {
+    requests.push({
+      updateSheetProperties: {
+        properties: {
+          sheetId: oldAbsenceAll.properties.sheetId,
+          title: "អវត្តមានទាំងអស់",
+        },
+        fields: "title",
+      },
+    });
+    hasAbsenceAll = true;
+  } else if (!hasAbsenceAll) {
     requests.push({
       addSheet: {
         properties: {
-          title: "អវត្តមាន_all_all",
-          gridProperties: { rowCount: 200, columnCount: 25, frozenRowCount: 1, frozenColumnCount: 2 },
+          title: "អវត្តមានទាំងអស់",
+          gridProperties: { rowCount: 200, columnCount: 35, frozenRowCount: 1, frozenColumnCount: 2 },
         },
       },
     });
@@ -215,29 +227,11 @@ export async function verifyAndInitSheet(sheetIdOrUrl: string): Promise<SheetInf
     }
   }
 
-  if (!hasAbsenceAll) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: "'អវត្តមាន_all_all'!A1:K1",
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [
-          [
-            "ID សិស្ស",
-            "ឈ្មោះពេញ",
-            "ភេទ",
-            "ថ្នាក់",
-            "វត្តមានទូទៅ",
-            "សរុបច្បាប់",
-            "សរុបអវត្តមាន",
-            "សរុបខកខាន",
-            "មូលហេតុ",
-            "ស្ថានភាព",
-            "កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព",
-          ],
-        ],
-      },
-    });
+  // Auto-populate 'អវត្តមានទាំងអស់' immediately so it's always ready without having to click
+  try {
+    await exportAbsenceSummaryToSheet(sheetId, "all", "all");
+  } catch (initSummaryErr) {
+    console.warn("Auto-populate អវត្តមានទាំងអស់ on init failed:", initSummaryErr);
   }
 
   return {
@@ -624,11 +618,11 @@ export async function saveAttendanceRecords(
     console.warn("Auto-sync dedicated subject sheets failed:", syncErr);
   }
 
-  // Auto-sync master sheet 'អវត្តមាន_all_all' (User request: ធ្វើSheet អវត្តមាន_all_all)
+  // Auto-sync master sheet 'អវត្តមានទាំងអស់' (User request: auto sync ទាំងsheet វត្តមានតាមមុខវិជ្ជានិងអវត្តមានទាំងអស់)
   try {
     await exportAbsenceSummaryToSheet(sheetId, "all", "all");
   } catch (syncAllErr) {
-    console.warn("Auto-sync អវត្តមាន_all_all failed:", syncAllErr);
+    console.warn("Auto-sync អវត្តមានទាំងអស់ failed:", syncAllErr);
   }
 
   return { success: true, count: records.length };
@@ -1551,14 +1545,39 @@ export async function exportAbsenceSummaryToSheet(
 
   let tabName = "";
   if ((!className || className === "all") && (!month || month === "all")) {
-    tabName = "អវត្តមាន_all_all";
+    tabName = "អវត្តមានទាំងអស់";
   } else {
     const cleanClass = className === "all" ? "គ្រប់ថ្នាក់" : (className.trim() || "ទូទៅ");
     const cleanMonth = month === "all" ? "សរុប" : (month.trim() || "សរុប");
     tabName = sanitizeTabName(`អវត្តមាន_${cleanClass}_${cleanMonth}`);
   }
 
-  const tabExists = existingSheets.includes(tabName);
+  // If user has old sheet named 'អវត្តមាន_all_all', rename it to 'អវត្តមានទាំងអស់'
+  const oldAbsenceAll = meta.data.sheets?.find((s: any) => s.properties?.title === "អវត្តមាន_all_all");
+  let tabExists = existingSheets.includes(tabName);
+  if (tabName === "អវត្តមានទាំងអស់" && oldAbsenceAll && oldAbsenceAll.properties?.sheetId !== undefined && !tabExists) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId: oldAbsenceAll.properties.sheetId,
+                  title: "អវត្តមានទាំងអស់",
+                },
+                fields: "title",
+              },
+            },
+          ],
+        },
+      });
+      tabExists = true;
+    } catch (renameErr) {
+      console.warn("Could not rename old អវត្តមាន_all_all:", renameErr);
+    }
+  }
 
   const subjects = summary.subjects.length > 0 ? summary.subjects : ["វត្តមានទូទៅ"];
 
@@ -1572,8 +1591,8 @@ export async function exportAbsenceSummaryToSheet(
               properties: {
                 title: tabName,
                 gridProperties: {
-                  rowCount: Math.max(100, summary.students.length + 15),
-                  columnCount: subjects.length + 10,
+                  rowCount: Math.max(150, summary.students.length + 30),
+                  columnCount: Math.max(35, subjects.length + 15),
                   frozenRowCount: 1,
                   frozenColumnCount: 2,
                 },
@@ -1638,11 +1657,28 @@ export async function exportAbsenceSummaryToSheet(
     ];
   });
 
-  // Clear existing content and update
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId: sheetId,
-    range: `'${tabName}'!A1:Z${Math.max(100, rows.length + 10)}`,
-  });
+  // Helper to convert number to column letter safely
+  const colLetter = (num: number) => {
+    let s = "";
+    let n = num;
+    while (n > 0) {
+      const m = (n - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      n = Math.floor((n - m) / 26);
+    }
+    return s || "Z";
+  };
+
+  // Clear existing content safely without exceeding grid limit
+  try {
+    const endCol = colLetter(Math.max(headers.length, 25));
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: `'${tabName}'!A1:${endCol}${Math.max(100, rows.length + 20)}`,
+    });
+  } catch (clearErr) {
+    console.warn("Could not clear range before update:", clearErr);
+  }
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,

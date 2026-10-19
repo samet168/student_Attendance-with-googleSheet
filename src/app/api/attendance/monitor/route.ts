@@ -7,6 +7,7 @@ import {
   getSubjectSheetData,
   dateToKhmerMonth,
   getSubjectTabName,
+  exportAbsenceSummaryToSheet,
 } from "@/lib/googleSheets";
 
 // GET /api/attendance/monitor?sheetId=...&class=12A&subject=គណិតវិទ្យា&date=2026-10-19&month=តុលា
@@ -107,9 +108,16 @@ export async function POST(req: NextRequest) {
     // 2. Sync dedicated subject sheet (e.g. គណិតវិទ្យា_12A_តុលា)
     const syncRes = await syncSubjectSheet(sheetId, className, cleanMonth, subject);
 
+    // 3. Auto-sync master sheet 'អវត្តមានទាំងអស់' (User request: auto sync ទាំងsheet វត្តមានតាមមុខវិជ្ជានិងអវត្តមានall)
+    try {
+      await exportAbsenceSummaryToSheet(sheetId, "all", "all");
+    } catch (syncAllErr) {
+      console.warn("Auto-sync អវត្តមានទាំងអស់ failed:", syncAllErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: `រក្សាទុកវត្តមានមុខវិជ្ជា «${subject}» និងធ្វើបច្ចុប្បន្នភាព Sheet [${syncRes.tabName}] បានជោគជ័យ!`,
+      message: `រក្សាទុកវត្តមានមុខវិជ្ជា «${subject}» និងធ្វើបច្ចុប្បន្នភាព Sheet [${syncRes.tabName}] និង [អវត្តមានទាំងអស់] បានជោគជ័យ!`,
       tabName: syncRes.tabName,
       updatedRows: syncRes.updatedRows,
     });
