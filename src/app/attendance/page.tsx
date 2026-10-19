@@ -26,8 +26,12 @@ import {
   AlertTriangle,
   ExternalLink,
   ChevronRight,
+  BookOpen,
+  QrCode,
+  ShieldCheck,
 } from "lucide-react";
 import { SubjectAbsenceSummaryData, StudentSubjectAbsence } from "@/types/attendance";
+import { DEFAULT_GRADE_SUBJECTS } from "@/types/grades";
 
 interface Student {
   id: string;
@@ -84,6 +88,7 @@ function AttendanceContent() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState(paramClass || "all");
+  const [selectedDailySubject, setSelectedDailySubject] = useState<string>("វត្តមានទូទៅ");
   const [attendanceData, setAttendanceData] = useState<
     Record<string, StudentAttendanceState>
   >({});
@@ -120,7 +125,7 @@ function AttendanceContent() {
     if (id) {
       setSheetId(id);
       setSheetTitle(title);
-      loadDailyData(id, selectedDate);
+      loadDailyData(id, selectedDate, selectedDailySubject);
     } else {
       setLoading(false);
     }
@@ -147,7 +152,11 @@ function AttendanceContent() {
   };
 
   // 1. Daily Data Loader
-  const loadDailyData = async (targetSheetId: string, targetDate: string) => {
+  const loadDailyData = async (
+    targetSheetId: string,
+    targetDate: string,
+    targetSubject: string = selectedDailySubject
+  ) => {
     setLoading(true);
     setErrorMessage(null);
     try {
@@ -162,10 +171,14 @@ function AttendanceContent() {
       const fetchedStudents: Student[] = stuData.students || [];
       setStudents(fetchedStudents);
 
+      const subParam =
+        targetSubject && targetSubject !== "វត្តមានទូទៅ"
+          ? `&subject=${encodeURIComponent(targetSubject)}`
+          : "";
       const attRes = await fetch(
         `/api/attendance?sheetId=${encodeURIComponent(targetSheetId)}&date=${encodeURIComponent(
           targetDate
-        )}`
+        )}${subParam}`
       );
       const attData = await attRes.json();
       const existingRecords = attData.records || {};
@@ -191,6 +204,13 @@ function AttendanceContent() {
       setErrorMessage(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDailySubjectChange = (newSub: string) => {
+    setSelectedDailySubject(newSub);
+    if (sheetId) {
+      loadDailyData(sheetId, selectedDate, newSub);
     }
   };
 
@@ -304,7 +324,7 @@ function AttendanceContent() {
           className: stu.className,
           status: item.status,
           note: item.note,
-          subject: "វត្តមានទូទៅ",
+          subject: selectedDailySubject,
         };
       });
 
@@ -444,6 +464,34 @@ function AttendanceContent() {
             {/* Top Sheet & Quick Actions */}
             <div className="flex items-center gap-2 flex-wrap">
               <Link
+                href={`/attendance/monitor?sheetId=${encodeURIComponent(
+                  sheetId
+                )}&class=${encodeURIComponent(
+                  selectedClass !== "all" ? selectedClass : "12A"
+                )}&subject=${encodeURIComponent(
+                  selectedDailySubject !== "វត្តមានទូទៅ" ? selectedDailySubject : "គណិតវិទ្យា"
+                )}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors shadow-xs"
+                title="ច្រកកត់វត្តមានសម្រាប់ប្រធានថ្នាក់"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>ច្រកប្រធានថ្នាក់</span>
+              </Link>
+
+              <Link
+                href={`/attendance/qr?sheetId=${encodeURIComponent(
+                  sheetId
+                )}&class=${encodeURIComponent(
+                  selectedClass !== "all" ? selectedClass : "12A"
+                )}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors shadow-xs"
+                title="សន្លឹក QR Code តាមមុខវិជ្ជា"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">សន្លឹក QR</span>
+              </Link>
+
+              <Link
                 href={`/grades?sheetId=${encodeURIComponent(sheetId)}&class=${encodeURIComponent(
                   viewMode === "summary" ? summaryClass : selectedClass
                 )}`}
@@ -532,6 +580,24 @@ function AttendanceContent() {
                       </select>
                     </div>
                   )}
+
+                  {/* Daily Subject Selector */}
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-700">
+                    <BookOpen className="w-4 h-4 text-blue-600" />
+                    <span className="font-semibold">មុខវិជ្ជា៖</span>
+                    <select
+                      value={selectedDailySubject}
+                      onChange={(e) => handleDailySubjectChange(e.target.value)}
+                      className="bg-transparent font-semibold text-slate-900 outline-none cursor-pointer"
+                    >
+                      <option value="វត្តមានទូទៅ">វត្តមានទូទៅ</option>
+                      {DEFAULT_GRADE_SUBJECTS.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Quick Bulk Button */}
@@ -545,7 +611,7 @@ function AttendanceContent() {
                     <span>វត្តមានទាំងអស់</span>
                   </button>
                   <button
-                    onClick={() => loadDailyData(sheetId, selectedDate)}
+                    onClick={() => loadDailyData(sheetId, selectedDate, selectedDailySubject)}
                     disabled={loading}
                     className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200"
                     title="Refresh"

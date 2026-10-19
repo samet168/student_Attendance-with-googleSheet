@@ -503,6 +503,17 @@ function GradesContent() {
                   <span>មើលសរុបអវត្តមាន</span>
                 </Link>
 
+                <Link
+                  href={`/attendance/qr?sheetId=${encodeURIComponent(
+                    sheetId
+                  )}&class=${encodeURIComponent(className)}&month=${encodeURIComponent(month)}`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold text-xs border border-teal-200 transition-colors shadow-xs"
+                  title="សន្លឹក QR Code តាមមុខវិជ្ជាសម្រាប់ប្រធានថ្នាក់"
+                >
+                  <QrCode className="w-4 h-4 text-teal-600" />
+                  <span>សន្លឹក QR មុខវិជ្ជា</span>
+                </Link>
+
                 <button
                   onClick={() => setIsPrintMode(true)}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"

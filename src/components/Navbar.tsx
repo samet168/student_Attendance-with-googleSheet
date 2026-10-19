@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Home,
   UserPlus,
+  ShieldCheck,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -83,6 +84,18 @@ export default function Navbar({ sheetId }: NavbarProps) {
                 >
                   <GraduationCap className="w-4 h-4" />
                   <span>ពិន្ទុ & ចំណាត់ថ្នាក់</span>
+                </Link>
+
+                <Link
+                  href={`/attendance/monitor?sheetId=${encodeURIComponent(sheetId)}`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors border shadow-xs ${
+                    pathname.startsWith("/attendance/monitor")
+                      ? "bg-teal-600 text-white border-teal-600"
+                      : "text-teal-700 bg-teal-50 hover:bg-teal-100 border-teal-200"
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>ច្រកប្រធានថ្នាក់</span>
                 </Link>
 
                 <Link

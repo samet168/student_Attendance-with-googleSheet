@@ -533,6 +533,24 @@ export async function saveAttendanceRecords(
     });
   }
 
+  // Auto-sync dedicated subject sheets for affected subjects and classes (Option 2 enhanced)
+  try {
+    const affected = new Set<string>();
+    for (const rec of records) {
+      if (rec.subject && rec.subject !== "វត្តមានទូទៅ" && rec.className) {
+        affected.add(`${rec.className}|${rec.subject}`);
+      }
+    }
+
+    const khmerMonth = dateToKhmerMonth(date);
+    for (const item of affected) {
+      const [cls, sub] = item.split("|");
+      await syncSubjectSheet(sheetId, cls, khmerMonth, sub);
+    }
+  } catch (syncErr) {
+    console.warn("Auto-sync dedicated subject sheets failed:", syncErr);
+  }
+
   return { success: true, count: records.length };
 }
 
@@ -546,6 +564,8 @@ import {
 import {
   type SubjectAbsenceSummaryData,
   type StudentSubjectAbsence,
+  type SubjectSheetStudentRow,
+  type SubjectSheetData,
 } from "@/types/attendance";
 
 export {
@@ -553,7 +573,46 @@ export {
   DEFAULT_GRADE_SUBJECTS,
   type StudentGradeRow,
   type GradesMatrixData,
+  type SubjectSheetStudentRow,
+  type SubjectSheetData,
 };
+
+export const KHMER_MONTH_TO_NUMBER: Record<string, string> = {
+  "មករា": "01",
+  "កុម្ភៈ": "02",
+  "មីនា": "03",
+  "មេសា": "04",
+  "ឧសភា": "05",
+  "មិថុនា": "06",
+  "កក្កដា": "07",
+  "សីហា": "08",
+  "កញ្ញា": "09",
+  "តុលា": "10",
+  "វិច្ឆិកា": "11",
+  "ធ្នូ": "12",
+};
+
+export const NUMBER_TO_KHMER_MONTH: Record<string, string> = {
+  "01": "មករា",
+  "02": "កុម្ភៈ",
+  "03": "មីនា",
+  "04": "មេសា",
+  "05": "ឧសភា",
+  "06": "មិថុនា",
+  "07": "កក្កដា",
+  "08": "សីហា",
+  "09": "កញ្ញា",
+  "10": "តុលា",
+  "11": "វិច្ឆិកា",
+  "12": "ធ្នូ",
+};
+
+export function dateToKhmerMonth(dateStr: string): string {
+  if (!dateStr) return "តុលា";
+  const parts = dateStr.split("-");
+  const monthNum = parts.length >= 2 ? parts[1] : "";
+  return NUMBER_TO_KHMER_MONTH[monthNum] || "តុលា";
+}
 
 export function sanitizeTabName(name: string): string {
   return name.replace(/[:\\/?*\[\]]/g, "_").slice(0, 100);
@@ -563,6 +622,13 @@ export function getGradeTabName(className: string, month: string): string {
   const cleanClass = className.trim() || "ទូទៅ";
   const cleanMonth = month.trim() || "ប្រចាំខែ";
   return sanitizeTabName(`ពិន្ទុ_${cleanClass}_${cleanMonth}`);
+}
+
+export function getSubjectTabName(subject: string, className: string, month: string): string {
+  const cleanSub = (subject || "គណិតវិទ្យា").trim();
+  const cleanClass = (className || "12A").trim();
+  const cleanMonth = (month || "តុលា").trim();
+  return sanitizeTabName(`${cleanSub}_${cleanClass}_${cleanMonth}`);
 }
 
 export function computeMention(average: number): string {
@@ -945,6 +1011,13 @@ export async function saveSubjectGrades(
     subjectStats[sub] = { submittedCount: count, totalCount: computedStudents.length };
   }
 
+  // Auto-sync dedicated subject sheet tab (Option 2 enhanced)
+  try {
+    await syncSubjectSheet(sheetId, className, month, subjectName);
+  } catch (syncErr) {
+    console.warn("Could not auto-sync dedicated subject sheet:", syncErr);
+  }
+
   return {
     sheetTitle: matrix.sheetTitle,
     className,
@@ -1284,5 +1357,291 @@ export async function exportAbsenceSummaryToSheet(
 
   return { tabName, updatedRows: rows.length };
 }
+
+// Get subject sheet data (calculated from master matrix and attendance)
+export async function getSubjectSheetData(
+  sheetIdOrUrl: string,
+  className: string,
+  month: string,
+  subject: string
+): Promise<SubjectSheetData> {
+  const sheetId = extractSheetId(sheetIdOrUrl);
+  const sheets = getSheetsClient();
+
+  const cleanClass = (className || "12A").trim();
+  const cleanMonth = (month || "តុលា").trim();
+  const cleanSubject = (subject || "គណិតវិទ្យា").trim();
+  const tabName = getSubjectTabName(cleanSubject, cleanClass, cleanMonth);
+
+  // 1. Get class students
+  const allStudents = await getStudentsList(sheetId);
+  const classStudents = allStudents.filter(
+    (s) => s.className.trim().toLowerCase() === cleanClass.toLowerCase()
+  );
+
+  // 2. Fetch scores from Master Grade matrix if available
+  const studentScores: Record<string, number | ""> = {};
+  try {
+    const matrix = await getOrInitGradesMatrix(sheetId, cleanClass, cleanMonth);
+    matrix.students.forEach((st) => {
+      if (st.scores && st.scores[cleanSubject] !== undefined) {
+        studentScores[st.studentId] = st.scores[cleanSubject];
+      }
+    });
+  } catch (err) {
+    console.warn("Could not load master grade matrix for subject:", err);
+  }
+
+  // 3. Fetch attendance records for this subject & month
+  const monthNum = KHMER_MONTH_TO_NUMBER[cleanMonth] || (cleanMonth.length <= 2 ? cleanMonth.padStart(2, "0") : "");
+
+  const attRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "Attendance!A1:ZZ",
+  });
+  const attRows = attRes.data.values || [];
+
+  const studentAtt: Record<string, { present: number; permission: number; absent: number }> = {};
+  classStudents.forEach((s) => {
+    studentAtt[s.id] = { present: 0, permission: 0, absent: 0 };
+  });
+
+  if (attRows.length >= 2) {
+    const header = attRows[0] || [];
+    const hasSubjectCol = header.length >= 8 && String(header[4] || "").includes("មុខវិជ្ជា");
+
+    for (let i = 1; i < attRows.length; i++) {
+      const row = attRows[i];
+      if (!row || !row[0] || !row[1]) continue;
+
+      const rowDate = String(row[0] || "").trim();
+      const rowStuId = String(row[1] || "").trim();
+
+      // Check month match
+      let matchesMonth = true;
+      if (monthNum && monthNum !== "all") {
+        matchesMonth =
+          rowDate.includes(`-${monthNum}-`) ||
+          rowDate.startsWith(`${monthNum}/`) ||
+          rowDate.includes(`/${monthNum}/`) ||
+          rowDate.includes(cleanMonth);
+      }
+      if (!matchesMonth) continue;
+
+      let rowSubject = "";
+      let rowStatus: "present" | "permission" | "absent" = "present";
+
+      if (hasSubjectCol) {
+        rowSubject = String(row[4] || "").trim();
+        rowStatus = toEnglishStatus(String(row[5] || ""));
+      } else {
+        rowStatus = toEnglishStatus(String(row[4] || ""));
+        const rawNote = String(row[5] || "");
+        const match = rawNote.match(/\[មុខវិជ្ជា:\s*([^\]]+)\]/);
+        rowSubject = match ? match[1].trim() : "វត្តមានទូទៅ";
+      }
+
+      if (rowSubject.toLowerCase() === cleanSubject.toLowerCase()) {
+        if (studentAtt[rowStuId]) {
+          if (rowStatus === "present") studentAtt[rowStuId].present++;
+          else if (rowStatus === "permission") studentAtt[rowStuId].permission++;
+          else if (rowStatus === "absent") studentAtt[rowStuId].absent++;
+        }
+      }
+    }
+  }
+
+  const nowStr = new Date().toLocaleString("km-KH", { timeZone: "Asia/Phnom_Penh" });
+
+  let totalScoreSum = 0;
+  let scoredCount = 0;
+  let totalPresent = 0;
+  let totalPermission = 0;
+  let totalAbsent = 0;
+
+  const studentsData: SubjectSheetStudentRow[] = classStudents.map((st, idx) => {
+    const scoreVal = studentScores[st.id];
+    let scoreDisplay: number | string = "";
+    if (scoreVal !== undefined && scoreVal !== "") {
+      const num = Number(scoreVal);
+      if (!isNaN(num)) {
+        scoreDisplay = num;
+        totalScoreSum += num;
+        scoredCount++;
+      }
+    }
+
+    const att = studentAtt[st.id] || { present: 0, permission: 0, absent: 0 };
+    const totalMissed = att.permission + att.absent;
+    totalPresent += att.present;
+    totalPermission += att.permission;
+    totalAbsent += att.absent;
+
+    let discipline = "ល្អ";
+    if (totalMissed > 5) {
+      discipline = "ព្រមានលើកទី ២ (ប្រកាសអាសន្ន)";
+    } else if (totalMissed >= 3) {
+      discipline = "ព្រមានលើកទី ១ (ត្រូវតាមដាន)";
+    } else if (totalMissed >= 1) {
+      discipline = "ធម្មតា";
+    }
+
+    return {
+      index: idx + 1,
+      studentId: st.id,
+      studentName: st.name,
+      gender: st.gender,
+      className: st.className,
+      score: scoreDisplay,
+      presentCount: att.present,
+      permissionCount: att.permission,
+      absentCount: att.absent,
+      totalMissed,
+      discipline,
+      lastUpdated: nowStr,
+    };
+  });
+
+  const averageScore = scoredCount > 0 ? Number((totalScoreSum / scoredCount).toFixed(2)) : "-";
+
+  return {
+    tabName,
+    className: cleanClass,
+    month: cleanMonth,
+    subject: cleanSubject,
+    students: studentsData,
+    stats: {
+      totalStudents: classStudents.length,
+      scoredCount,
+      averageScore,
+      totalPresent,
+      totalPermission,
+      totalAbsent,
+      totalMissed: totalPermission + totalAbsent,
+    },
+  };
+}
+
+// Synchronize and write dedicated subject sheet to Google Sheet
+export async function syncSubjectSheet(
+  sheetIdOrUrl: string,
+  className: string,
+  month: string,
+  subject: string
+): Promise<{ tabName: string; updatedRows: number }> {
+  const sheetId = extractSheetId(sheetIdOrUrl);
+  const sheets = getSheetsClient();
+
+  const data = await getSubjectSheetData(sheetId, className, month, subject);
+  const tabName = data.tabName;
+
+  // 1. Check if tab exists, if not, create it
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const existingSheets = meta.data.sheets?.map((s) => s.properties?.title || "") || [];
+  const tabExists = existingSheets.includes(tabName);
+
+  if (!tabExists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title: tabName,
+                gridProperties: {
+                  rowCount: Math.max(100, data.students.length + 15),
+                  columnCount: 15,
+                  frozenRowCount: 2,
+                  frozenColumnCount: 3,
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  // 2. Prepare headers and rows
+  const nowPhnomPenh = new Date().toLocaleString("km-KH", { timeZone: "Asia/Phnom_Penh" });
+
+  const titleRow = [
+    `មុខវិជ្ជា: ${data.subject}`,
+    `ថ្នាក់: ${data.className}`,
+    `ខែ: ${data.month}`,
+    "",
+    "សន្លឹកកិច្ចការតាមមុខវិជ្ជា (ពិន្ទុ & វត្តមាន)",
+    "",
+    "",
+    "",
+    "",
+    "",
+    `កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព: ${nowPhnomPenh}`,
+  ];
+
+  const colHeaders = [
+    "ល.រ",
+    "ID សិស្ស",
+    "ឈ្មោះពេញ",
+    "ភេទ",
+    "ថ្នាក់",
+    "ពិន្ទុប្រចាំខែ",
+    "វត្តមាន (ម៉ោង)",
+    "ច្បាប់ (ម៉ោង)",
+    "អវត្តមាន (ម៉ោង)",
+    "សរុបម៉ោងខកខាន",
+    "ស្ថានភាពវិន័យ",
+    "កាលបរិច្ឆេទ",
+  ];
+
+  const dataRows = data.students.map((st) => [
+    st.index,
+    st.studentId,
+    st.studentName,
+    st.gender,
+    st.className,
+    st.score,
+    st.presentCount,
+    st.permissionCount,
+    st.absentCount,
+    st.totalMissed,
+    st.discipline,
+    st.lastUpdated,
+  ]);
+
+  const summaryRow = [
+    "សរុប / មធ្យមភាគ",
+    "",
+    `សិស្សសរុប: ${data.stats.totalStudents} នាក់`,
+    "",
+    "",
+    data.stats.averageScore !== "-" ? `មធ្យមភាគ: ${data.stats.averageScore}` : "-",
+    data.stats.totalPresent,
+    data.stats.totalPermission,
+    data.stats.totalAbsent,
+    data.stats.totalMissed,
+    "",
+    nowPhnomPenh,
+  ];
+
+  // 3. Clear existing data and write new
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: sheetId,
+    range: `'${tabName}'!A1:Z${Math.max(100, dataRows.length + 10)}`,
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `'${tabName}'!A1`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [titleRow, colHeaders, ...dataRows, [], summaryRow],
+    },
+  });
+
+  return { tabName, updatedRows: dataRows.length };
+}
+
 
 
